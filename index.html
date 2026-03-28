@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>알고리즘 교실 (Algorithm Game Class)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', 'Roboto', sans-serif; background-color: #f0f2f5; }
+        .material-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .material-card { background: white; border-radius: 12px; transition: all 0.3s ease; }
+        .material-button { transition: background-color 0.2s, transform 0.1s; }
+        .material-button:active { transform: scale(0.96); }
+        
+        .sort-bar { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .confetti { position: fixed; width: 10px; height: 10px; z-index: 100; animation: fall linear forwards; }
+        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white material-shadow sticky top-0 z-40">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                <h1 id="app-title" class="text-xl md:text-2xl font-bold tracking-tight">알고리즘 교실</h1>
+            </div>
+            <button id="lang-toggle" class="bg-blue-500 hover:bg-blue-400 px-3 py-1 rounded text-sm font-medium material-button transition-colors">
+                EN / KO
+            </button>
+        </div>
+    </header>
+
+    <!-- Course Selector (Difficulty) -->
+    <section id="course-selector" class="flex-grow max-w-4xl mx-auto w-full px-4 py-12 flex flex-col items-center gap-8 fade-in">
+        <h2 id="course-title" class="text-3xl font-bold text-gray-800 mt-8">과정을 선택하세요</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-4">
+            <button class="material-card p-8 flex flex-col items-center gap-4 hover:ring-4 hover:ring-green-400 material-button" onclick="setDifficulty('beginner')">
+                <span class="text-5xl">🌱</span>
+                <h3 id="course-beginner" class="text-2xl font-bold text-green-600">초급</h3>
+                <p id="course-beginner-desc" class="text-gray-500 text-center">기초를 다지는 쉬운 난이도</p>
+            </button>
+            <button class="material-card p-8 flex flex-col items-center gap-4 hover:ring-4 hover:ring-blue-400 material-button" onclick="setDifficulty('intermediate')">
+                <span class="text-5xl">🚀</span>
+                <h3 id="course-intermediate" class="text-2xl font-bold text-blue-600">중급</h3>
+                <p id="course-intermediate-desc" class="text-gray-500 text-center">조금 더 복잡한 문제 도전</p>
+            </button>
+            <button class="material-card p-8 flex flex-col items-center gap-4 hover:ring-4 hover:ring-red-400 material-button" onclick="setDifficulty('advanced')">
+                <span class="text-5xl">🔥</span>
+                <h3 id="course-advanced" class="text-2xl font-bold text-red-600">고급</h3>
+                <p id="course-advanced-desc" class="text-gray-500 text-center">알고리즘 마스터를 위한 극한 난이도</p>
+            </button>
+        </div>
+    </section>
+
+    <!-- Main Game Area -->
+    <main id="game-main" class="flex-grow max-w-5xl mx-auto w-full px-4 py-6 md:py-8 flex-col gap-6 hidden fade-in">
+        
+        <!-- Level Selector -->
+        <nav class="material-card p-4 material-shadow mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h2 id="level-select-title" class="text-lg font-bold text-gray-700">단계 선택</h2>
+                <div>
+                    <button id="back-course-btn" class="text-sm text-blue-500 hover:text-blue-700 underline mr-4 font-medium" onclick="backToCourse()">과정 선택으로</button>
+                    <button id="reset-btn" class="text-sm text-red-500 hover:text-red-700 underline font-medium">진도 초기화</button>
+                </div>
+            </div>
+            <div id="level-grid" class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <!-- Dynamically generated -->
+            </div>
+        </nav>
+
+        <!-- Game Container -->
+        <section id="game-container" class="material-card p-6 md:p-8 material-shadow min-h-[400px] flex flex-col relative fade-in">
+            <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span id="diff-badge" class="px-2 py-1 text-xs font-bold rounded bg-gray-200 text-gray-700"></span>
+                        <h2 id="game-title" class="text-2xl font-bold text-blue-700">Level Title</h2>
+                    </div>
+                    <p id="game-desc" class="text-gray-600 mt-2 leading-relaxed">Description goes here</p>
+                </div>
+                <div class="flex gap-2">
+                    <button id="restart-lvl-btn" class="bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-1 material-button" onclick="restartCurrentLevel()">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span id="restart-label">다시하기</span>
+                    </button>
+                    <button id="hint-btn" class="bg-amber-100 text-amber-700 hover:bg-amber-200 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-1 material-button">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                        <span id="hint-label">힌트</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Dynamic Game Board -->
+            <div id="game-board" class="flex-grow flex flex-col items-center justify-center bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <!-- Content injected via JS -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Overlay -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
+        <div class="material-card w-11/12 max-w-md p-6 transform scale-95 transition-transform" id="modal-content-box">
+            <div id="modal-icon" class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl"></div>
+            <h3 id="modal-title" class="text-2xl font-bold text-center mb-2">Title</h3>
+            <p id="modal-body" class="text-gray-600 text-center mb-6 leading-relaxed">Body text</p>
+            <div class="flex justify-center gap-3">
+                <button id="modal-cancel-btn" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-full font-bold material-button">취소</button>
+                <button id="modal-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-bold material-button">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           1. Application State & Data
+           ========================================================================== */
+        const APP_STATE = {
+            lang: 'ko',
+            difficulty: null, // 'beginner', 'intermediate', 'advanced'
+            currentLevel: 1,
+            unlocked: {
+                beginner: [1],
+                intermediate: [1],
+                advanced: [1]
+            }
+        };
+
+        // Load progress from LocalStorage
+        try {
+            const saved = localStorage.getItem('algoGameProgress');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.unlocked) {
+                    // Migration check for older versions
+                    if (Array.isArray(parsed.unlocked)) {
+                        APP_STATE.unlocked.beginner = parsed.unlocked;
+                    } else {
+                        APP_STATE.unlocked = parsed.unlocked;
+                    }
+                }
+                if (parsed.difficulty) APP_STATE.difficulty = parsed.difficulty;
+                if (parsed.currentLevel) APP_STATE.currentLevel = parsed.currentLevel;
+            }
+        } catch (e) { console.warn("LocalStorage access denied."); }
+
+        function saveProgress() {
+            try { 
+                localStorage.setItem('algoGameProgress', JSON.stringify({ 
+                    unlocked: APP_STATE.unlocked,
+                    difficulty: APP_STATE.difficulty,
+                    currentLevel: APP_STATE.currentLevel
+                })); 
+            }
+            catch (e) { /* ignore */ }
+        }
+
+        /* ==========================================================================
+           2. Localization Dictionary (Korean / English)
+           ========================================================================== */
+        const DICT = {
+            ko: {
+                appTitle: "알고리즘 교실",
+                courseTitle: "과정을 선택하세요",
+                courseBeginner: "초급", courseBeginnerDesc: "기초를 다지는 쉬운 난이도",
+                courseIntermediate: "중급", courseIntermediateDesc: "조금 더 복잡한 문제 도전",
+                courseAdvanced: "고급", courseAdvancedDesc: "알고리즘 마스터를 위한 극한 난이도",
+                btnBackCourse: "과정 선택으로",
+                levelSelect: "단계 선택",
+                hintLabel: "힌트",
+                restartLabel: "다시하기",
+                resetBtn: "진도 초기화",
+                locked: "잠김",
+                btnConfirm: "확인",
+                btnNext: "다음 단계로",
+                btnRun: "실행하기",
+                btnReset: "다시하기",
+                diffBadge: { beginner: "🌱 초급", intermediate: "🚀 중급", advanced: "🔥 고급" },
+                levels: [
+                    {
+                        title: "로봇 청소기 탈출 (순차/반복)",
+                        hint: "오른쪽으로 몇 칸, 아래로 몇 칸을 가야 할지 먼저 세어보세요! 장애물(🧱)을 피해야 합니다.",
+                        successTitle: "탈출 성공!",
+                        successMsg: "축하합니다! 컴퓨터에게 명령을 내릴 때는 순서(순차)가 매우 중요하며, 같은 동작은 반복할 수 있습니다."
+                    },
+                    {
+                        title: "비밀번호 해킹 (이진 탐색)",
+                        hint: "범위의 정중앙을 계속 찔러보세요. 남은 범위를 계속 절반으로 줄여나가는 것이 핵심입니다!",
+                        successTitle: "해킹 완료!",
+                        successMsg: "대단해요! 정답의 범위를 절반씩 줄여나가는 방식을 '이진 탐색(Binary Search)'이라고 합니다. 데이터가 많을수록 엄청난 효율을 자랑하죠."
+                    },
+                    {
+                        title: "막대 그래프 정렬 (정렬)",
+                        hint: "가장 낮은 막대를 찾아서 첫 번째 자리로 보내고, 그 다음 낮은 막대를 두 번째 자리로 보내는 방식을 반복해 보세요. (선택 정렬)",
+                        successTitle: "정렬 완벽해요!",
+                        successMsg: "정렬(Sorting)은 뒤죽박죽인 데이터를 순서대로 나열하는 것입니다. 데이터가 정렬되어 있으면 원하는 정보를 훨씬 빠르게 찾을 수 있어요."
+                    },
+                    {
+                        title: "도둑의 배낭 (그리디 알고리즘)",
+                        hint: "어떤 보석부터 담아야 할까요? 1kg당 가치가 가장 높은 보석을 먼저 선택하는 '탐욕스러운' 전략을 사용해보세요!",
+                        successTitle: "최고의 도둑!",
+                        successMsg: "그리디(Greedy) 알고리즘은 매 순간 가장 좋아 보이는 선택을 하는 방식입니다. 항상 정답은 아니지만, 특정 상황에서는 완벽한 해결책이 됩니다."
+                    },
+                    {
+                        title: "최단 경로 찾기 (다익스트라)",
+                        hint: "직선 거리가 항상 빠른 것은 아닙니다! 다른 노드를 거쳐가는 것이 숫자의 합이 더 적을 수도 있어요.",
+                        successTitle: "최단 경로 발견!",
+                        successMsg: "다익스트라(Dijkstra) 알고리즘은 내비게이션의 핵심 원리입니다! 연결된 길들을 탐색하며 목적지까지의 가장 짧은 거리를 확실하게 찾아냅니다."
+                    }
+                ],
+                gameUI: {
+                    l1_up: "위", l1_down: "아래", l1_left: "왼", l1_right: "오른", l1_clear: "되돌리기",
+                    l2_placeholder: "숫자 입력", l2_submit: "입력", l2_up: "UP! ⬆️", l2_down: "DOWN! ⬇️", l2_left: "남은 기회: ", l2_fail: "실패! 정답은 ",
+                    l4_capacity: "배낭 용량: ", l4_value: "현재 가치: ",
+                    l5_start: "출발", l5_end: "도착", l5_current: "현재 비용: ", l5_target: "목표 비용: "
+                }
+            },
+            en: {
+                appTitle: "Algorithm Class",
+                courseTitle: "Select a Course",
+                courseBeginner: "Beginner", courseBeginnerDesc: "Easy difficulty to build basics",
+                courseIntermediate: "Intermediate", courseIntermediateDesc: "Challenge with more complex problems",
+                courseAdvanced: "Advanced", courseAdvancedDesc: "Extreme difficulty for masters",
+                btnBackCourse: "Back to Courses",
+                levelSelect: "Select Level",
+                hintLabel: "Hint",
+                restartLabel: "Restart",
+                resetBtn: "Reset Progress",
+                locked: "Locked",
+                btnConfirm: "Confirm",
+                btnNext: "Next Level",
+                btnRun: "Run",
+                btnReset: "Reset",
+                diffBadge: { beginner: "🌱 Beginner", intermediate: "🚀 Intermediate", advanced: "🔥 Advanced" },
+                levels: [
+                    {
+                        title: "Robot Vacuum Escape",
+                        hint: "Count how many steps right and down you need to reach the target! Avoid obstacles(🧱).",
+                        successTitle: "Escape Successful!",
+                        successMsg: "Congratulations! In programming, the order of commands (sequence) is crucial, and repeating patterns is the foundation."
+                    },
+                    {
+                        title: "Password Hacking",
+                        hint: "Always guess the exact middle of the range! Halving the remaining range is the key.",
+                        successTitle: "Hacking Complete!",
+                        successMsg: "Awesome! Halving the search space each time is called 'Binary Search'. It's incredibly efficient for large data!"
+                    },
+                    {
+                        title: "Bar Graph Sorting",
+                        hint: "Find the shortest bar and swap it to the first position. Then find the next shortest... (Selection Sort)",
+                        successTitle: "Perfectly Sorted!",
+                        successMsg: "Sorting organizes mixed data into order. When data is sorted, finding information becomes much faster."
+                    },
+                    {
+                        title: "Thief's Knapsack",
+                        hint: "Which item to pick first? Try a 'greedy' strategy: pick the item with the highest value per 1kg!",
+                        successTitle: "Master Thief!",
+                        successMsg: "The Greedy algorithm makes the locally optimal choice at each step. It's very fast and effective in specific situations!"
+                    },
+                    {
+                        title: "Shortest Path",
+                        hint: "The direct path isn't always the fastest! Sometimes passing through other nodes yields a smaller sum.",
+                        successTitle: "Path Found!",
+                        successMsg: "Dijkstra's algorithm is the core of GPS navigation! It explores paths to reliably find the shortest route."
+                    }
+                ],
+                gameUI: {
+                    l1_up: "Up", l1_down: "Down", l1_left: "Left", l1_right: "Right", l1_clear: "Undo",
+                    l2_placeholder: "Enter number", l2_submit: "Guess", l2_up: "UP! ⬆️", l2_down: "DOWN! ⬇️", l2_left: "Attempts left: ", l2_fail: "Failed! Answer was ",
+                    l4_capacity: "Capacity: ", l4_value: "Total Value: ",
+                    l5_start: "Start", l5_end: "End", l5_current: "Current Cost: ", l5_target: "Target Cost: "
+                }
+            }
+        };
+
+        /* ==========================================================================
+           3. Core DOM & UI Functions
+           ========================================================================== */
+        const el = id => document.getElementById(id);
+
+        function setDifficulty(diff) {
+            APP_STATE.difficulty = diff;
+            APP_STATE.currentLevel = 1;
+            saveProgress();
+            renderApp();
+        }
+
+        function backToCourse() {
+            APP_STATE.difficulty = null;
+            saveProgress();
+            renderApp();
+        }
+
+        window.restartCurrentLevel = () => {
+            if (APP_STATE.currentLevel === 1) initLevel1();
+            if (APP_STATE.currentLevel === 2) initLevel2();
+            if (APP_STATE.currentLevel === 3) initLevel3();
+            if (APP_STATE.currentLevel === 4) initLevel4();
+            if (APP_STATE.currentLevel === 5) initLevel5();
+        };
+
+        function renderApp() {
+            const t = DICT[APP_STATE.lang];
+            
+            // Header & Globals
+            el('app-title').textContent = t.appTitle;
+
+            if (!APP_STATE.difficulty) {
+                // Show Course Selector
+                el('course-selector').classList.remove('hidden');
+                el('game-main').classList.add('hidden');
+                el('game-main').classList.remove('flex');
+                
+                el('course-title').textContent = t.courseTitle;
+                el('course-beginner').textContent = t.courseBeginner;
+                el('course-beginner-desc').textContent = t.courseBeginnerDesc;
+                el('course-intermediate').textContent = t.courseIntermediate;
+                el('course-intermediate-desc').textContent = t.courseIntermediateDesc;
+                el('course-advanced').textContent = t.courseAdvanced;
+                el('course-advanced-desc').textContent = t.courseAdvancedDesc;
+            } else {
+                // Show Game Main
+                el('course-selector').classList.add('hidden');
+                el('game-main').classList.remove('hidden');
+                el('game-main').classList.add('flex');
+
+                el('level-select-title').textContent = t.levelSelect;
+                el('back-course-btn').textContent = t.btnBackCourse;
+                el('reset-btn').textContent = t.resetBtn;
+                el('hint-label').textContent = t.hintLabel;
+                el('restart-label').textContent = t.restartLabel;
+                
+                // Set Difficulty Badge
+                const badge = el('diff-badge');
+                badge.textContent = t.diffBadge[APP_STATE.difficulty];
+                badge.className = `px-2 py-1 text-xs font-bold rounded text-white ${
+                    APP_STATE.difficulty === 'beginner' ? 'bg-green-500' : 
+                    APP_STATE.difficulty === 'intermediate' ? 'bg-blue-500' : 'bg-red-500'
+                }`;
+
+                // Level Selector
+                const grid = el('level-grid');
+                grid.innerHTML = '';
+                const unlockedArr = APP_STATE.unlocked[APP_STATE.difficulty] || [1];
+                for (let i = 1; i <= 5; i++) {
+                    const isUnlocked = unlockedArr.includes(i);
+                    const btn = document.createElement('button');
+                    btn.className = `p-3 rounded-lg text-sm font-bold border-2 material-button flex flex-col items-center justify-center gap-1 ${
+                        APP_STATE.currentLevel === i ? 'border-blue-500 bg-blue-50 text-blue-700' :
+                        isUnlocked ? 'border-gray-200 bg-white text-gray-700 hover:border-blue-300' :
+                        'border-gray-100 bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`;
+                    btn.innerHTML = `
+                        <span class="text-xl">${isUnlocked ? (i===1?'🤖':i===2?'🔍':i===3?'📊':i===4?'💎':'🗺️') : '🔒'}</span>
+                        <span>${isUnlocked ? i + (APP_STATE.lang==='ko'?'단계':'') : t.locked}</span>
+                    `;
+                    if (isUnlocked) {
+                        btn.onclick = () => { APP_STATE.currentLevel = i; renderApp(); };
+                    }
+                    grid.appendChild(btn);
+                }
+
+                // Game Content Init
+                const levelData = t.levels[APP_STATE.currentLevel - 1];
+                el('game-title').textContent = levelData.title;
+                
+                // Re-trigger animation
+                const container = el('game-container');
+                container.classList.remove('fade-in');
+                void container.offsetWidth; // trigger reflow
+                container.classList.add('fade-in');
+
+                restartCurrentLevel(); // Load Game Logic
+            }
+        }
+
+        // Modals
+        function showModal(title, body, type="info", onConfirm=null) {
+            const m = el('modal');
+            const box = el('modal-content-box');
+            el('modal-title').textContent = title;
+            el('modal-body').textContent = body;
+            
+            const icon = el('modal-icon');
+            const confirmBtn = el('modal-btn');
+            const cancelBtn = el('modal-cancel-btn');
+            
+            cancelBtn.classList.add('hidden'); // Reset cancel button
+
+            if(type === 'success') {
+                icon.innerHTML = '🎉';
+                icon.className = 'w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl bg-green-100';
+                confirmBtn.textContent = APP_STATE.currentLevel < 5 ? DICT[APP_STATE.lang].btnNext : DICT[APP_STATE.lang].btnConfirm;
+                confirmBtn.className = 'bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full font-bold material-button';
+                fireConfetti();
+                
+                // Unlock next level in current difficulty
+                let unlockedArr = APP_STATE.unlocked[APP_STATE.difficulty];
+                if (APP_STATE.currentLevel < 5 && !unlockedArr.includes(APP_STATE.currentLevel + 1)) {
+                    unlockedArr.push(APP_STATE.currentLevel + 1);
+                    saveProgress();
+                }
+            } else if(type === 'confirm') {
+                icon.innerHTML = '⚠️';
+                icon.className = 'w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl bg-red-100';
+                confirmBtn.textContent = DICT[APP_STATE.lang].btnConfirm;
+                confirmBtn.className = 'bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-full font-bold material-button';
+                cancelBtn.classList.remove('hidden');
+                cancelBtn.textContent = APP_STATE.lang === 'ko' ? '취소' : 'Cancel';
+            } else {
+                icon.innerHTML = '💡';
+                icon.className = 'w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl bg-amber-100';
+                confirmBtn.textContent = DICT[APP_STATE.lang].btnConfirm;
+                confirmBtn.className = 'bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-bold material-button';
+            }
+
+            m.classList.remove('hidden');
+            setTimeout(() => {
+                m.classList.remove('opacity-0');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 10);
+
+            confirmBtn.onclick = () => {
+                closeModal();
+                if(type === 'success' && APP_STATE.currentLevel < 5) {
+                    APP_STATE.currentLevel++;
+                    renderApp();
+                }
+                if(type === 'confirm' && onConfirm) {
+                    onConfirm();
+                }
+            };
+            
+            cancelBtn.onclick = () => closeModal();
+        }
+
+        function closeModal() {
+            const m = el('modal');
+            const box = el('modal-content-box');
+            m.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+            setTimeout(() => m.classList.add('hidden'), 300);
+        }
+
+        function fireConfetti() {
+            const colors = ['#fce18a', '#ff726d', '#b48def', '#f4306d'];
+            for(let i=0; i<50; i++) {
+                const conf = document.createElement('div');
+                conf.className = 'confetti';
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                document.body.appendChild(conf);
+                setTimeout(() => conf.remove(), 4000);
+            }
+        }
+
+        // Event Listeners
+        el('lang-toggle').onclick = () => {
+            APP_STATE.lang = APP_STATE.lang === 'ko' ? 'en' : 'ko';
+            renderApp();
+        };
+
+        el('hint-btn').onclick = () => {
+            const t = DICT[APP_STATE.lang].levels[APP_STATE.currentLevel - 1];
+            showModal(DICT[APP_STATE.lang].hintLabel, t.hint, "hint");
+        };
+
+        el('reset-btn').onclick = () => {
+            const title = APP_STATE.lang === 'ko' ? "진도 초기화" : "Reset Progress";
+            const msg = APP_STATE.lang === 'ko' ? 
+                "진도를 초기화하시겠습니까? 1단계로 돌아가며 2~5단계는 다시 잠깁니다." : 
+                "Reset progress? Returns to Level 1 and locks Levels 2-5.";
+                
+            showModal(title, msg, "confirm", () => {
+                // 1. 브라우저 저장소 데이터 완전 삭제
+                localStorage.removeItem('algoGameProgress');
+                
+                // 2. 상태 초기화 (현재 난이도 유지, 1단계로 리셋)
+                APP_STATE.unlocked = {
+                    beginner: [1],
+                    intermediate: [1],
+                    advanced: [1]
+                };
+                APP_STATE.currentLevel = 1;
+                
+                // 3. 백그라운드 게임 루프 정지
+                if (window.gameInterval) clearInterval(window.gameInterval);
+                
+                // 4. 즉각적으로 화면 렌더링
+                saveProgress();
+                renderApp();
+            });
+        };
+
+        /* ==========================================================================
+           4. Game Logics (Level 1 ~ 5) WITH DIFFICULTY SCALING
+           ========================================================================== */
+        
+        // --- LEVEL 1: Sequence ---
+        function initLevel1() {
+            const board = el('game-board');
+            const ui = DICT[APP_STATE.lang].gameUI;
+            let cmds = [];
+            
+            // Difficulty scaling with Random Maps
+            let mapSize, start, target, blocks, gridColsClass;
+            const randomMapIndex = Math.floor(Math.random() * 3); // 3가지 무작위 맵 패턴
+            
+            if (APP_STATE.difficulty === 'beginner') {
+                mapSize = 4; start = {x:0, y:0}; gridColsClass = 'grid-cols-4';
+                const maps = [
+                    { t: {x:3, y:3}, b: [{x:1, y:1}, {x:2, y:2}] },
+                    { t: {x:3, y:1}, b: [{x:2, y:0}, {x:2, y:1}] },
+                    { t: {x:2, y:3}, b: [{x:0, y:2}, {x:1, y:2}] }
+                ];
+                target = maps[randomMapIndex].t; blocks = maps[randomMapIndex].b;
+            } else if (APP_STATE.difficulty === 'intermediate') {
+                mapSize = 5; start = {x:0, y:0}; gridColsClass = 'grid-cols-5';
+                const maps = [
+                    { t: {x:4, y:4}, b: [{x:1, y:1}, {x:2, y:2}, {x:3, y:1}, {x:1, y:3}] },
+                    { t: {x:0, y:4}, b: [{x:0, y:2}, {x:1, y:2}, {x:2, y:2}, {x:3, y:2}] },
+                    { t: {x:4, y:2}, b: [{x:2, y:0}, {x:2, y:1}, {x:2, y:3}, {x:2, y:4}] }
+                ];
+                target = maps[randomMapIndex].t; blocks = maps[randomMapIndex].b;
+            } else {
+                mapSize = 6; start = {x:0, y:0}; gridColsClass = 'grid-cols-6';
+                const maps = [
+                    { t: {x:5, y:5}, b: [{x:1, y:1}, {x:2, y:2}, {x:3, y:1}, {x:1, y:3}, {x:4, y:4}, {x:2, y:4}, {x:4, y:2}] },
+                    { t: {x:5, y:0}, b: [{x:1, y:0}, {x:1, y:1}, {x:3, y:1}, {x:3, y:2}, {x:5, y:2}, {x:4, y:4}, {x:5, y:4}] },
+                    { t: {x:0, y:5}, b: [{x:0, y:2}, {x:1, y:2}, {x:2, y:2}, {x:3, y:4}, {x:4, y:4}, {x:5, y:4}, {x:2, y:5}] }
+                ];
+                target = maps[randomMapIndex].t; blocks = maps[randomMapIndex].b;
+            }
+
+            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
+                `방향 버튼을 조합하여 로봇(🤖)이 목표 지점(🎯)에 도달하게 하세요. 장애물(🧱)을 조심하세요!` : 
+                `Combine direction buttons to make the robot(🤖) reach the target(🎯). Avoid obstacles(🧱)!`;
+
+            board.innerHTML = `
+                <div id="l1-grid" class="grid ${gridColsClass} gap-1 bg-gray-300 border-4 border-gray-400 p-1 mb-6 rounded"></div>
+                <div class="flex flex-col items-center gap-3 w-full max-w-sm">
+                    <div id="l1-cmds" class="flex gap-1 bg-white p-2 rounded w-full min-h-[40px] shadow overflow-x-auto items-center"></div>
+                    <div class="grid grid-cols-3 gap-2 w-full text-center">
+                        <div></div>
+                        <button class="bg-gray-200 hover:bg-gray-300 p-2 rounded font-bold" onclick="l1_add('U')">⬆️ ${ui.l1_up}</button>
+                        <div></div>
+                        <button class="bg-gray-200 hover:bg-gray-300 p-2 rounded font-bold" onclick="l1_add('L')">⬅️ ${ui.l1_left}</button>
+                        <button class="bg-gray-200 hover:bg-gray-300 p-2 rounded font-bold" onclick="l1_add('D')">⬇️ ${ui.l1_down}</button>
+                        <button class="bg-gray-200 hover:bg-gray-300 p-2 rounded font-bold" onclick="l1_add('R')">➡️ ${ui.l1_right}</button>
+                    </div>
+                    <div class="flex gap-2 w-full mt-2">
+                        <button class="flex-1 bg-red-100 text-red-700 py-2 rounded font-bold hover:bg-red-200" onclick="l1_clear()">${ui.l1_clear}</button>
+                        <button class="flex-1 bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700" onclick="l1_run()">${DICT[APP_STATE.lang].btnRun}</button>
+                    </div>
+                </div>
+            `;
+
+            const drawGrid = (roboX, roboY) => {
+                const grid = el('l1-grid');
+                grid.innerHTML = '';
+                for(let y=0; y<mapSize; y++){
+                    for(let x=0; x<mapSize; x++){
+                        let cell = document.createElement('div');
+                        cell.className = 'w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-white flex items-center justify-center text-xl md:text-2xl';
+                        if(x===roboX && y===roboY) cell.innerHTML = '🤖';
+                        else if(x===target.x && y===target.y) cell.innerHTML = '🎯';
+                        else if(blocks.some(b => b.x===x && b.y===y)) { cell.classList.add('bg-gray-800'); cell.innerHTML='🧱'; }
+                        grid.appendChild(cell);
+                    }
+                }
+            };
+            drawGrid(start.x, start.y);
+
+            window.l1_add = (c) => { 
+                if(cmds.length > 20) return;
+                cmds.push(c); 
+                renderCmds(); 
+            };
+            window.l1_clear = () => { 
+                if(cmds.length > 0) {
+                    cmds.pop(); 
+                    renderCmds(); 
+                }
+            };
+            const renderCmds = () => {
+                const dict = { 'U':'⬆️', 'D':'⬇️', 'L':'⬅️', 'R':'➡️' };
+                el('l1-cmds').innerHTML = cmds.map(c => `<span class="bg-gray-100 px-2 py-1 rounded text-sm">${dict[c]}</span>`).join('');
+            };
+
+            window.l1_run = () => {
+                let currX = start.x, currY = start.y;
+                let i = 0;
+                
+                // 기존에 실행 중인 타이머가 있다면 초기화
+                if (window.gameInterval) clearInterval(window.gameInterval);
+                
+                window.gameInterval = setInterval(() => {
+                    if(i >= cmds.length) {
+                        clearInterval(window.gameInterval);
+                        if(currX === target.x && currY === target.y) {
+                            const lv = DICT[APP_STATE.lang].levels[0];
+                            setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 300);
+                        } else {
+                            setTimeout(() => { 
+                                showModal(
+                                    APP_STATE.lang === 'ko' ? "실패!" : "Failed!",
+                                    APP_STATE.lang === 'ko' ? "경로를 벗어났거나 목표에 도달하지 못했습니다. 다시 시도하세요." : "Failed to reach the target. Try again.",
+                                    "info"
+                                );
+                                drawGrid(start.x, start.y); 
+                            }, 300);
+                        }
+                        return;
+                    }
+                    let c = cmds[i];
+                    let nx = currX, ny = currY;
+                    if(c==='U') ny--; if(c==='D') ny++; if(c==='L') nx--; if(c==='R') nx++;
+                    // Collision check
+                    if(nx>=0 && nx<mapSize && ny>=0 && ny<mapSize && !blocks.some(b=>b.x===nx && b.y===ny)) {
+                        currX = nx; currY = ny;
+                    }
+                    drawGrid(currX, currY);
+                    i++;
+                }, 400);
+            };
+        }
+
+        // --- LEVEL 2: Binary Search ---
+        function initLevel2() {
+            const board = el('game-board');
+            const ui = DICT[APP_STATE.lang].gameUI;
+            
+            // Difficulty scaling
+            const maxNum = APP_STATE.difficulty === 'beginner' ? 100 : (APP_STATE.difficulty === 'intermediate' ? 500 : 1000);
+            const maxAttempts = APP_STATE.difficulty === 'beginner' ? 7 : (APP_STATE.difficulty === 'intermediate' ? 9 : 10);
+            
+            let target = Math.floor(Math.random() * maxNum) + 1;
+            let attempts = maxAttempts;
+
+            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
+                `1부터 ${maxNum} 사이의 시스템 비밀번호를 맞춰보세요. (최대 ${maxAttempts}번 기회)` : 
+                `Guess the system password between 1 and ${maxNum}. (Max ${maxAttempts} attempts)`;
+
+            board.innerHTML = `
+                <div class="text-6xl mb-6" id="l2-icon">💻</div>
+                <div class="text-xl font-bold mb-4 text-blue-600" id="l2-feedback">???</div>
+                <div class="flex gap-2 w-full max-w-xs mb-4">
+                    <input type="number" id="l2-input" class="flex-1 border-2 border-gray-300 rounded px-3 py-2 text-center text-lg focus:border-blue-500 outline-none" placeholder="1 ~ ${maxNum}" min="1" max="${maxNum}">
+                    <button class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700" onclick="l2_guess()">${ui.l2_submit}</button>
+                </div>
+                <div class="text-gray-500 font-medium" id="l2-attempts">${ui.l2_left} ${attempts}</div>
+            `;
+
+            window.l2_guess = () => {
+                if(attempts <= 0) return;
+                const val = parseInt(el('l2-input').value);
+                if(isNaN(val) || val < 1 || val > maxNum) return;
+                
+                attempts--;
+                el('l2-attempts').textContent = `${ui.l2_left} ${attempts}`;
+                el('l2-input').value = '';
+                
+                if(val === target) {
+                    el('l2-feedback').textContent = val + " !!";
+                    el('l2-icon').textContent = "🔓";
+                    const lv = DICT[APP_STATE.lang].levels[1];
+                    setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 300);
+                } else if(val > target) {
+                    el('l2-feedback').textContent = val + " -> " + ui.l2_down;
+                    el('l2-feedback').className = "text-xl font-bold mb-4 text-red-500";
+                } else {
+                    el('l2-feedback').textContent = val + " -> " + ui.l2_up;
+                    el('l2-feedback').className = "text-xl font-bold mb-4 text-green-500";
+                }
+
+                if(attempts === 0 && val !== target) {
+                    el('l2-feedback').textContent = ui.l2_fail + target;
+                    setTimeout(() => initLevel2(), 2000);
+                }
+            };
+            
+            el('l2-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') l2_guess(); });
+        }
+
+        // --- LEVEL 3: Sorting ---
+        function initLevel3() {
+            const board = el('game-board');
+            
+            // Difficulty scaling with Random Array
+            let arrLength = APP_STATE.difficulty === 'beginner' ? 5 : (APP_STATE.difficulty === 'intermediate' ? 7 : 10);
+            
+            // Generate random unique values for bars
+            let pool = [15, 25, 35, 45, 55, 65, 75, 85, 95, 100];
+            pool.sort(() => Math.random() - 0.5); // Shuffle array
+            let arr = pool.slice(0, arrLength);
+
+            let selectedIdx = null;
+
+            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
+                `두 개의 막대를 클릭하여 서로 위치를 바꿀 수 있습니다. 높이가 낮은 순서대로(오름차순) 정렬하세요.` : 
+                `Click two bars to swap them. Sort them in ascending order (lowest to highest).`;
+
+            board.innerHTML = `
+                <div id="l3-bars" class="flex items-end h-48 md:h-64 gap-1 md:gap-2 mb-8 w-full max-w-lg justify-center"></div>
+                <div class="text-gray-500 text-sm">Click two bars to swap them</div>
+            `;
+
+            const renderBars = () => {
+                const container = el('l3-bars');
+                container.innerHTML = '';
+                const barWidthClass = arr.length > 7 ? 'w-8 md:w-10' : 'w-12 md:w-16';
+
+                arr.forEach((val, idx) => {
+                    const bar = document.createElement('div');
+                    bar.className = `${barWidthClass} rounded-t-md cursor-pointer flex items-end justify-center pb-2 text-white font-bold sort-bar text-xs md:text-base ${selectedIdx === idx ? 'bg-amber-400 -translate-y-4' : 'bg-blue-500 hover:bg-blue-400'}`;
+                    bar.style.height = `${val}%`;
+                    bar.textContent = val;
+                    bar.onclick = () => {
+                        if(selectedIdx === null) {
+                            selectedIdx = idx;
+                            renderBars();
+                        } else {
+                            if(selectedIdx !== idx) {
+                                let temp = arr[idx];
+                                arr[idx] = arr[selectedIdx];
+                                arr[selectedIdx] = temp;
+                            }
+                            selectedIdx = null;
+                            renderBars();
+                            checkWin();
+                        }
+                    };
+                    container.appendChild(bar);
+                });
+            };
+
+            const checkWin = () => {
+                let sorted = true;
+                for(let i=0; i<arr.length-1; i++){
+                    if(arr[i] > arr[i+1]) sorted = false;
+                }
+                if(sorted) {
+                    const lv = DICT[APP_STATE.lang].levels[2];
+                    setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 500);
+                }
+            };
+
+            renderBars();
+        }
+
+        // --- LEVEL 4: Greedy ---
+        function initLevel4() {
+            const board = el('game-board');
+            const ui = DICT[APP_STATE.lang].gameUI;
+            
+            // Random Base Items
+            let baseItems = [
+                { id: 'A', name: '💎 Diamond', w: 2 },
+                { id: 'B', name: '🔴 Ruby', w: 3 },
+                { id: 'C', name: '🔵 Sapphire', w: 4 },
+                { id: 'D', name: '🟢 Emerald', w: 5 },
+                { id: 'E', name: '💍 Ring', w: 1 }
+            ];
+
+            // Difficulty scaling
+            let maxW = 10;
+            if (APP_STATE.difficulty === 'intermediate' || APP_STATE.difficulty === 'advanced') {
+                baseItems.push({ id: 'F', name: '👑 Crown', w: 6 }, { id: 'G', name: '📿 Necklace', w: 2 });
+                if (APP_STATE.difficulty === 'intermediate') maxW = 15;
+            }
+            if (APP_STATE.difficulty === 'advanced') {
+                baseItems.push({ id: 'H', name: '🪙 Gold Coin', w: 1 }, { id: 'I', name: '🏆 Trophy', w: 7 }, { id: 'J', name: '🏺 Relic', w: 4 });
+                maxW = 20;
+            }
+
+            // Assign Dynamic Random Values & Compute Ratio
+            let items = baseItems.map(item => {
+                let vwRatio = Math.floor(Math.random() * 8) + 4; // 가중치 랜덤 (4~11)
+                let v = item.w * vwRatio + Math.floor(Math.random() * 5) - 2; // 노이즈 추가
+                return { ...item, v: v > 0 ? v : 1, sel: false, ratio: v / item.w };
+            });
+
+            // Auto-calculate the Optimal Greedy Target!
+            let sortedItems = [...items].sort((a,b) => b.ratio - a.ratio);
+            let targetV = 0, tempW = 0;
+            sortedItems.forEach(item => {
+                if (tempW + item.w <= maxW) {
+                    tempW += item.w;
+                    targetV += item.v;
+                }
+            });
+
+            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
+                `배낭의 최대 무게는 ${maxW}kg입니다. 무게를 넘지 않으면서 가장 가치가 높게(최소 ${targetV}G 이상) 담으세요.` : 
+                `Max capacity is ${maxW}kg. Pack items to maximize value (Reach at least ${targetV}G) without exceeding weight.`;
+
+            const renderUI = () => {
+                let curW = 0, curV = 0;
+                items.forEach(i => { if(i.sel){ curW += i.w; curV += i.v; } });
+                
+                let isOver = curW > maxW;
+                let wColor = isOver ? 'text-red-600' : 'text-blue-600';
+
+                board.innerHTML = `
+                    <div class="flex gap-8 mb-6 bg-white p-4 rounded shadow-sm w-full max-w-lg justify-between items-center border">
+                        <div class="text-center">
+                            <div class="text-sm text-gray-500">${ui.l4_capacity}</div>
+                            <div class="text-xl font-bold ${wColor}">${curW} / ${maxW}kg</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm text-gray-500">${ui.l4_value} (목표: ${targetV}G)</div>
+                            <div class="text-xl font-bold text-amber-500">${curV} G</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-lg">
+                        ${items.map((it, idx) => `
+                            <button class="border-2 rounded-lg p-3 text-left flex justify-between items-center transition-colors ${it.sel ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-amber-300 bg-white'}" onclick="l4_toggle(${idx})">
+                                <span class="font-bold text-sm md:text-base">${it.name}</span>
+                                <span class="text-xs md:text-sm text-gray-500">${it.w}kg / ${it.v}G</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+
+                if(!isOver && curV >= targetV) {
+                    const lv = DICT[APP_STATE.lang].levels[3];
+                    setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 300);
+                }
+            };
+
+            window.l4_toggle = (idx) => {
+                items[idx].sel = !items[idx].sel;
+                renderUI();
+            };
+
+            renderUI();
+        }
+
+        // --- LEVEL 5: Dijkstra ---
+        function initLevel5() {
+            const board = el('game-board');
+            const ui = DICT[APP_STATE.lang].gameUI;
+            
+            // Maps config by difficulty (Edges without weights yet)
+            const maps = {
+                beginner: {
+                    nodes: {
+                        A: { x: 10, y: 50, label: ui.l5_start }, B: { x: 40, y: 20, label: 'B' },
+                        C: { x: 40, y: 80, label: 'C' }, D: { x: 70, y: 20, label: 'D' },
+                        E: { x: 90, y: 50, label: ui.l5_end }
+                    },
+                    edges: [
+                        { f: 'A', t: 'B' }, { f: 'A', t: 'C' }, { f: 'B', t: 'C' }, 
+                        { f: 'B', t: 'D' }, { f: 'C', t: 'D' }, { f: 'C', t: 'E' }, { f: 'D', t: 'E' }
+                    ],
+                    targetNode: 'E'
+                },
+                intermediate: {
+                    nodes: {
+                        A: { x: 10, y: 50, label: ui.l5_start }, B: { x: 35, y: 20, label: 'B' },
+                        C: { x: 35, y: 80, label: 'C' }, D: { x: 65, y: 20, label: 'D' },
+                        E: { x: 65, y: 80, label: 'E' }, F: { x: 90, y: 50, label: ui.l5_end }
+                    },
+                    edges: [
+                        { f: 'A', t: 'B' }, { f: 'A', t: 'C' }, { f: 'B', t: 'D' }, 
+                        { f: 'B', t: 'E' }, { f: 'C', t: 'D' }, { f: 'C', t: 'E' },
+                        { f: 'D', t: 'F' }, { f: 'E', t: 'F' }
+                    ],
+                    targetNode: 'F'
+                },
+                advanced: {
+                    nodes: {
+                        A: { x: 10, y: 50, label: ui.l5_start }, B: { x: 30, y: 20, label: 'B' },
+                        C: { x: 30, y: 80, label: 'C' }, D: { x: 50, y: 50, label: 'D' },
+                        E: { x: 70, y: 20, label: 'E' }, F: { x: 70, y: 80, label: 'F' },
+                        G: { x: 90, y: 50, label: ui.l5_end }
+                    },
+                    edges: [
+                        { f: 'A', t: 'B' }, { f: 'A', t: 'C' }, { f: 'B', t: 'D' }, 
+                        { f: 'C', t: 'D' }, { f: 'B', t: 'E' }, { f: 'D', t: 'E' },
+                        { f: 'D', t: 'F' }, { f: 'C', t: 'F' }, { f: 'E', t: 'G' }, { f: 'F', t: 'G' }
+                    ],
+                    targetNode: 'G'
+                }
+            };
+
+            const curMap = maps[APP_STATE.difficulty];
+            const { nodes, edges, targetNode } = curMap;
+            
+            // Randomize Edge Weights (1 to 8)
+            edges.forEach(e => e.w = Math.floor(Math.random() * 8) + 1);
+
+            // Auto-calculate Shortest Path using Dijkstra algorithm
+            let dist = {};
+            Object.keys(nodes).forEach(k => dist[k] = Infinity);
+            dist['A'] = 0;
+            let unvisited = new Set(Object.keys(nodes));
+
+            while(unvisited.size > 0) {
+                let u = Array.from(unvisited).reduce((a, b) => dist[a] < dist[b] ? a : b);
+                unvisited.delete(u);
+                if(dist[u] === Infinity || u === targetNode) break;
+
+                let neighbors = edges.filter(e => e.f === u || e.t === u);
+                neighbors.forEach(edge => {
+                    let v = edge.f === u ? edge.t : edge.f;
+                    if(unvisited.has(v)) {
+                        let alt = dist[u] + edge.w;
+                        if(alt < dist[v]) dist[v] = alt;
+                    }
+                });
+            }
+            const targetCost = dist[targetNode];
+            
+            let path = ['A'];
+            let currentCost = 0;
+
+            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
+                `출발지(A)에서 목적지(${targetNode})까지 가는 가장 빠른(비용이 적은) 경로를 연결하세요. (최소 비용: ${targetCost})` : 
+                `Find the fastest path from Start(A) to End(${targetNode}). (Target cost: ${targetCost})`;
+
+            const renderMap = () => {
+                currentCost = 0;
+                for(let i=0; i<path.length-1; i++){
+                    let edge = edges.find(e => (e.f===path[i] && e.t===path[i+1]) || (e.t===path[i] && e.f===path[i+1]));
+                    if(edge) currentCost += edge.w;
+                }
+
+                let html = `
+                    <div class="flex justify-between w-full max-w-2xl mb-4 font-bold text-lg px-4">
+                        <span class="text-blue-600">${ui.l5_current} ${currentCost}</span>
+                        <span class="text-amber-600">${ui.l5_target} ${targetCost}</span>
+                    </div>
+                    <div class="relative w-full max-w-2xl h-64 md:h-[400px] bg-white border-2 border-gray-200 rounded-xl overflow-hidden material-shadow">
+                        <svg class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                `;
+
+                // Draw Edges
+                edges.forEach(e => {
+                    const n1 = nodes[e.f], n2 = nodes[e.t];
+                    let inPath = false;
+                    for(let i=0; i<path.length-1; i++) {
+                        if((path[i]===e.f && path[i+1]===e.t) || (path[i]===e.t && path[i+1]===e.f)) inPath = true;
+                    }
+                    html += `<line x1="${n1.x}%" y1="${n1.y}%" x2="${n2.x}%" y2="${n2.y}%" stroke="${inPath ? '#3b82f6' : '#cbd5e1'}" stroke-width="${inPath ? '4' : '2'}"/>`;
+                    html += `<text x="${(n1.x+n2.x)/2}%" y="${(n1.y+n2.y)/2 - 2}%" fill="${inPath ? '#1d4ed8' : '#64748b'}" font-weight="bold" font-size="14" text-anchor="middle">${e.w}</text>`;
+                });
+                html += `</svg>`;
+
+                // Draw Nodes
+                Object.keys(nodes).forEach(k => {
+                    const n = nodes[k];
+                    const isLast = path[path.length-1] === k;
+                    const inPath = path.includes(k);
+                    html += `
+                        <button class="absolute z-10 w-8 h-8 md:w-10 md:h-10 -ml-4 -mt-4 md:-ml-5 md:-mt-5 rounded-full font-bold text-white shadow-md transition-transform hover:scale-110 ${isLast ? 'bg-amber-500 ring-4 ring-amber-200' : inPath ? 'bg-blue-600' : 'bg-gray-400'}" 
+                                style="left: ${n.x}%; top: ${n.y}%;"
+                                onclick="l5_click('${k}')">
+                            ${k}
+                        </button>
+                        <div class="absolute z-10 text-xs font-bold text-gray-700 -ml-10 mt-5 md:mt-6 w-20 text-center pointer-events-none" style="left: ${n.x}%; top: ${n.y}%;">${n.label}</div>
+                    `;
+                });
+
+                html += `</div>`;
+                board.innerHTML = html;
+
+                // Check Win
+                if(path[path.length-1] === targetNode) {
+                    if(currentCost === targetCost) {
+                        const lv = DICT[APP_STATE.lang].levels[4];
+                        setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 300);
+                    } else {
+                        setTimeout(() => {
+                            showModal(
+                                APP_STATE.lang === 'ko' ? "경로 확인" : "Check Path",
+                                APP_STATE.lang === 'ko' ? "도착했지만 최단 경로가 아닙니다. 다시 시도해보세요!" : "Reached end, but not the shortest path!",
+                                "info"
+                            );
+                            l5_reset();
+                        }, 300);
+                    }
+                }
+            };
+
+            window.l5_click = (node) => {
+                const last = path[path.length-1];
+                if(node === last) return; // ignore same
+                // check if connected
+                let edge = edges.find(e => (e.f===last && e.t===node) || (e.t===last && e.f===node));
+                if(edge) {
+                    if(path.includes(node)) {
+                        // go back to that node
+                        const idx = path.indexOf(node);
+                        path = path.slice(0, idx+1);
+                    } else {
+                        path.push(node);
+                    }
+                    renderMap();
+                }
+            };
+
+            window.l5_reset = () => { path = ['A']; renderMap(); };
+            renderMap();
+        }
+
+        /* ==========================================================================
+           5. Initialize Application
+           ========================================================================== */
+        window.onload = () => renderApp();
+
+    </script>
+</body>
+</html>
