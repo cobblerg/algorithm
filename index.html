@@ -3,1022 +3,939 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>알고리즘 교실 (Algorithm Game Class)</title>
+    <title>게임으로 알아보는 알고리즘 - Algorithm Adventure</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Confetti JS -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        body { font-family: 'Noto Sans KR', 'Roboto', sans-serif; background-color: #f0f2f5; }
-        .material-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-        .material-card { background: white; border-radius: 12px; transition: all 0.3s ease; }
-        .material-button { transition: background-color 0.2s, transform 0.1s; }
-        .material-button:active { transform: scale(0.96); }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Roboto:wght@400;500;700&display=swap');
         
-        .sort-bar { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .confetti { position: fixed; width: 10px; height: 10px; z-index: 100; animation: fall linear forwards; }
-        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
-        
-        .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        body {
+            font-family: 'Noto Sans KR', 'Roboto', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .level-card.locked {
+            filter: grayscale(1);
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .grid-cell {
+            aspect-ratio: 1 / 1;
+        }
+
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        /* Animation for robot */
+        .robot-move {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Sorting bar transition */
+        .bar-transition {
+            transition: transform 0.4s ease, height 0.4s ease;
+        }
+
+        .btn-scale:active {
+            transform: scale(0.95);
+        }
+
+        /* Difficulty button active styles */
+        .diff-btn-active {
+            border-color: #4f46e5 !important;
+            box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2);
+            background-color: white !important;
+        }
     </style>
 </head>
-<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
 
     <!-- Header -->
-    <header class="bg-blue-600 text-white material-shadow sticky top-0 z-40">
-        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                <h1 id="app-title" class="text-xl md:text-2xl font-bold tracking-tight">알고리즘 교실</h1>
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-2 cursor-pointer" onclick="goHome()">
+                <div class="bg-indigo-600 p-1.5 rounded-lg">
+                    <i data-lucide="cpu" class="text-white w-6 h-6"></i>
+                </div>
+                <h1 class="text-lg font-bold text-gray-800 tracking-tight" id="header-title">게임으로 알아보는 알고리즘</h1>
             </div>
-            <button id="lang-toggle" class="bg-blue-500 hover:bg-blue-400 px-3 py-1 rounded text-sm font-medium material-button transition-colors">
-                EN / KO
-            </button>
+            
+            <div class="flex items-center space-x-3">
+                <button onclick="toggleLang()" class="px-3 py-1.5 border border-gray-300 rounded-full text-sm font-medium hover:bg-gray-50 flex items-center space-x-1">
+                    <i data-lucide="languages" class="w-4 h-4"></i>
+                    <span id="lang-toggle-text">EN</span>
+                </button>
+                <div id="difficulty-badge" class="hidden px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold uppercase tracking-wider"></div>
+            </div>
         </div>
     </header>
 
-    <!-- Course Selector (Difficulty) -->
-    <section id="course-selector" class="flex-grow max-w-4xl mx-auto w-full px-4 py-12 flex flex-col items-center gap-8 fade-in">
-        <h2 id="course-title" class="text-3xl font-bold text-gray-800 mt-8">과정을 선택하세요</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-4">
-            <button class="material-card p-8 flex flex-col items-center gap-4 hover:ring-4 hover:ring-green-400 material-button" onclick="setDifficulty('beginner')">
-                <span class="text-5xl">🌱</span>
-                <h3 id="course-beginner" class="text-2xl font-bold text-green-600">초급</h3>
-                <p id="course-beginner-desc" class="text-gray-500 text-center">기초를 다지는 쉬운 난이도</p>
-            </button>
-            <button class="material-card p-8 flex flex-col items-center gap-4 hover:ring-4 hover:ring-blue-400 material-button" onclick="setDifficulty('intermediate')">
-                <span class="text-5xl">🚀</span>
-                <h3 id="course-intermediate" class="text-2xl font-bold text-blue-600">중급</h3>
-                <p id="course-intermediate-desc" class="text-gray-500 text-center">조금 더 복잡한 문제 도전</p>
-            </button>
-            <button class="material-card p-8 flex flex-col items-center gap-4 hover:ring-4 hover:ring-red-400 material-button" onclick="setDifficulty('advanced')">
-                <span class="text-5xl">🔥</span>
-                <h3 id="course-advanced" class="text-2xl font-bold text-red-600">고급</h3>
-                <p id="course-advanced-desc" class="text-gray-500 text-center">알고리즘 마스터를 위한 극한 난이도</p>
-            </button>
-        </div>
-    </section>
-
-    <!-- Main Game Area -->
-    <main id="game-main" class="flex-grow max-w-5xl mx-auto w-full px-4 py-6 md:py-8 flex-col gap-6 hidden fade-in">
-        
-        <!-- Level Selector -->
-        <nav class="material-card p-4 material-shadow mb-6">
-            <div class="flex justify-between items-center mb-3">
-                <h2 id="level-select-title" class="text-lg font-bold text-gray-700">단계 선택</h2>
-                <div>
-                    <button id="back-course-btn" class="text-sm text-blue-500 hover:text-blue-700 underline mr-4 font-medium" onclick="backToCourse()">과정 선택으로</button>
-                    <button id="reset-btn" class="text-sm text-red-500 hover:text-red-700 underline font-medium">진도 초기화</button>
-                </div>
+    <!-- Main Content -->
+    <main class="flex-grow max-w-4xl mx-auto w-full p-4">
+        <!-- Home Screen -->
+        <section id="screen-home" class="space-y-6">
+            <div class="text-center py-8">
+                <h2 class="text-3xl font-extrabold text-gray-900 mb-2" id="welcome-msg">환영합니다, 미래의 개발자님!</h2>
+                <p class="text-gray-600" id="welcome-sub">5단계의 알고리즘 모험을 통해 핵심 원리를 마스터하세요.</p>
             </div>
-            <div id="level-grid" class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <!-- Dynamically generated -->
-            </div>
-        </nav>
 
-        <!-- Game Container -->
-        <section id="game-container" class="material-card p-6 md:p-8 material-shadow min-h-[400px] flex flex-col relative fade-in">
-            <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span id="diff-badge" class="px-2 py-1 text-xs font-bold rounded bg-gray-200 text-gray-700"></span>
-                        <h2 id="game-title" class="text-2xl font-bold text-blue-700">Level Title</h2>
-                    </div>
-                    <p id="game-desc" class="text-gray-600 mt-2 leading-relaxed">Description goes here</p>
-                </div>
-                <div class="flex gap-2">
-                    <button id="restart-lvl-btn" class="bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-1 material-button" onclick="restartCurrentLevel()">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        <span id="restart-label">다시하기</span>
+            <!-- Difficulty Selection -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="font-bold text-gray-800 mb-4" id="select-diff-text">난이도 선택</h3>
+                <div class="grid grid-cols-3 gap-3">
+                    <button onclick="setDifficulty('easy')" id="btn-diff-easy" class="diff-btn p-4 rounded-xl border-2 transition-all flex flex-col items-center">
+                        <i data-lucide="smile" class="w-8 h-8 mb-2"></i>
+                        <span class="font-bold" id="label-easy">초급</span>
                     </button>
-                    <button id="hint-btn" class="bg-amber-100 text-amber-700 hover:bg-amber-200 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-1 material-button">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-                        <span id="hint-label">힌트</span>
+                    <button onclick="setDifficulty('medium')" id="btn-diff-medium" class="diff-btn p-4 rounded-xl border-2 transition-all flex flex-col items-center">
+                        <i data-lucide="zap" class="w-8 h-8 mb-2"></i>
+                        <span class="font-bold" id="label-medium">중급</span>
+                    </button>
+                    <button onclick="setDifficulty('hard')" id="btn-diff-hard" class="diff-btn p-4 rounded-xl border-2 transition-all flex flex-col items-center">
+                        <i data-lucide="flame" class="w-8 h-8 mb-2"></i>
+                        <span class="font-bold" id="label-hard">고급</span>
                     </button>
                 </div>
             </div>
-            
-            <!-- Dynamic Game Board -->
-            <div id="game-board" class="flex-grow flex flex-col items-center justify-center bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <!-- Content injected via JS -->
+
+            <!-- Level Grid -->
+            <div id="level-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Levels will be injected here -->
+            </div>
+
+            <div class="flex justify-center pt-4">
+                <button onclick="confirmResetProgress()" class="text-gray-400 hover:text-red-500 text-sm flex items-center space-x-1 transition-colors">
+                    <i data-lucide="refresh-ccw" class="w-4 h-4"></i>
+                    <span id="reset-progress-text">현재 난이도 진도 초기화</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Game Screen -->
+        <section id="screen-game" class="hidden space-y-4">
+            <div class="flex items-center justify-between">
+                <button onclick="goHome()" class="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                    <i data-lucide="arrow-left" class="w-6 h-6"></i>
+                </button>
+                <div class="text-center">
+                    <h2 id="game-title" class="text-xl font-bold text-gray-800"></h2>
+                    <p id="game-step" class="text-xs text-indigo-600 font-bold uppercase tracking-widest"></p>
+                </div>
+                <button onclick="showHint()" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors">
+                    <i data-lucide="lightbulb" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <!-- Game Container -->
+            <div id="game-container" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 min-h-[350px] flex flex-col items-center justify-center relative overflow-hidden">
+                <!-- Level Specific UI goes here -->
+            </div>
+
+            <!-- Control Bar -->
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="retryLevel()" class="flex items-center justify-center space-x-2 p-3 bg-gray-200 text-gray-700 rounded-xl font-bold btn-scale">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                    <span id="btn-retry-text">다시하기</span>
+                </button>
+                <button id="primary-action-btn" class="flex items-center justify-center space-x-2 p-3 bg-indigo-600 text-white rounded-xl font-bold btn-scale shadow-lg shadow-indigo-200">
+                    <i data-lucide="play" class="w-5 h-5"></i>
+                    <span id="btn-action-text">실행하기</span>
+                </button>
             </div>
         </section>
     </main>
 
-    <!-- Modal Overlay -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity opacity-0">
-        <div class="material-card w-11/12 max-w-md p-6 transform scale-95 transition-transform" id="modal-content-box">
-            <div id="modal-icon" class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl"></div>
-            <h3 id="modal-title" class="text-2xl font-bold text-center mb-2">Title</h3>
-            <p id="modal-body" class="text-gray-600 text-center mb-6 leading-relaxed">Body text</p>
-            <div class="flex justify-center gap-3">
-                <button id="modal-cancel-btn" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-full font-bold material-button">취소</button>
-                <button id="modal-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-bold material-button">확인</button>
+    <!-- Modals -->
+    <div id="modal-container" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
+        <div id="modal-content" class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl transform transition-all scale-95 opacity-0">
+            <div id="modal-icon" class="mb-4 flex justify-center"></div>
+            <h3 id="modal-title" class="text-xl font-extrabold text-center text-gray-900 mb-2"></h3>
+            <p id="modal-body" class="text-gray-600 text-center mb-6 leading-relaxed"></p>
+            <div id="modal-footer" class="flex flex-col space-y-2">
+                <!-- Buttons will be injected -->
             </div>
         </div>
     </div>
 
     <script>
-        /* ==========================================================================
-           1. Application State & Data
-           ========================================================================== */
-        const APP_STATE = {
-            lang: 'ko',
-            difficulty: null, // 'beginner', 'intermediate', 'advanced'
+        // --- State Management ---
+        const state = {
+            lang: localStorage.getItem('algo_lang') || 'KO',
+            difficulty: localStorage.getItem('algo_diff') || 'easy',
+            unlockedLevels: [],
+            completedLevels: [],
             currentLevel: 1,
-            unlocked: {
-                beginner: [1],
-                intermediate: [1],
-                advanced: [1]
+            gameData: null,
+            isProcessing: false
+        };
+
+        const i18n = {
+            KO: {
+                header: "게임으로 알아보는 알고리즘",
+                welcome: "환영합니다, 미래의 개발자님!",
+                welcomeSub: "5단계의 알고리즘 모험을 통해 핵심 원리를 마스터하세요.",
+                selectDiff: "난이도 선택",
+                easy: "초급", medium: "중급", hard: "고급",
+                resetProgress: "현재 난이도 초기화",
+                retry: "다시하기",
+                execute: "실행하기",
+                hint: "힌트",
+                close: "닫기",
+                next: "다음 단계로",
+                confirmReset: "정말 초기화할까요?",
+                resetMsg: "현재 난이도의 모든 진행 상황과 클리어 기록이 삭제됩니다.",
+                cancel: "취소",
+                success: "레벨 클리어!",
+                failed: "다시 도전해 보세요!",
+                check: "확인",
+                levels: [
+                    { t: "로봇 경로", d: "순차와 반복 제어" },
+                    { t: "업다운 해킹", d: "이진 탐색의 효율성" },
+                    { t: "막대 정렬", d: "데이터 정렬 알고리즘" },
+                    { t: "도둑의 배낭", d: "탐욕적 선택(그리디)" },
+                    { t: "최단 경로", d: "다익스트라 알고리즘" }
+                ],
+                hints: [
+                    "목표 지점에 도달할 수 있는 명령어를 순서대로 예약하세요.",
+                    "범위의 절반을 계속해서 줄여나가는 것이 이진 탐색의 핵심입니다.",
+                    "가장 작은 값을 찾아 왼쪽으로 보내는 선택 정렬을 시뮬레이션 해보세요.",
+                    "무게 대비 가치가 가장 높은 보석부터 채우는 것이 최선의 전략일까요?",
+                    "현재 위치에서 가장 적은 비용이 드는 노드를 하나씩 연결해 보세요."
+                ],
+                principles: [
+                    "순차(Sequence)는 명령어를 나열된 순서대로 실행하는 기초적인 제어 구조입니다.",
+                    "이진 탐색(Binary Search)은 정렬된 데이터에서 탐색 범위를 절반씩 줄여 성능을 $O(\\log n)$으로 만듭니다.",
+                    "정렬(Sorting)은 데이터를 일정한 규칙에 따라 나열하는 과정입니다. 선택 정렬은 매번 최소값을 찾는 방식입니다.",
+                    "탐욕(Greedy) 알고리즘은 매 순간 최적이라고 생각되는 것을 선택하여 전체의 최적해를 구하려는 방법입니다.",
+                    "다익스트라(Dijkstra) 알고리즘은 그래프 내에서 한 노드에서 다른 모든 노드까지의 최단 경로를 찾는 알고리즘입니다."
+                ]
+            },
+            EN: {
+                header: "Algorithm Adventure",
+                welcome: "Welcome, Future Dev!",
+                welcomeSub: "Master core principles through 5 levels of adventure.",
+                selectDiff: "Select Difficulty",
+                easy: "Easy", medium: "Medium", hard: "Hard",
+                resetProgress: "Reset Current Progress",
+                retry: "Retry",
+                execute: "Execute",
+                hint: "Hint",
+                close: "Close",
+                next: "Next Level",
+                confirmReset: "Are you sure?",
+                resetMsg: "All progress for the current difficulty will be cleared.",
+                cancel: "Cancel",
+                success: "Level Clear!",
+                failed: "Try Again!",
+                check: "Check",
+                levels: [
+                    { t: "Robot Path", d: "Sequential & Iterative Control" },
+                    { t: "Up-Down Hack", d: "Efficiency of Binary Search" },
+                    { t: "Bar Sorting", d: "Data Sorting Algorithms" },
+                    { t: "Thief's Bag", d: "Greedy Optimization" },
+                    { t: "Shortest Path", d: "Dijkstra's Algorithm" }
+                ],
+                hints: [
+                    "Plan the movements in order to reach the goal flag.",
+                    "The key to binary search is cutting the search range in half each time.",
+                    "Try to find the smallest bar and move it to the leftmost position.",
+                    "Is it always best to pick items with the highest value-to-weight ratio?",
+                    "Connect the nodes starting with the lowest cost from your current position."
+                ],
+                principles: [
+                    "Sequence is the fundamental structure where instructions are executed one by one in order.",
+                    "Binary Search reduces the search space by half, resulting in $O(\\log n)$ performance on sorted data.",
+                    "Sorting organizes data based on rules. Selection sort finds the minimum element repeatedly.",
+                    "Greedy algorithms make the locally optimal choice at each step to find a global optimum.",
+                    "Dijkstra's algorithm finds the shortest path between nodes in a graph."
+                ]
             }
         };
 
-        // Load progress from LocalStorage
-        try {
-            const saved = localStorage.getItem('algoGameProgress');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (parsed.unlocked) {
-                    // Migration check for older versions
-                    if (Array.isArray(parsed.unlocked)) {
-                        APP_STATE.unlocked.beginner = parsed.unlocked;
-                    } else {
-                        APP_STATE.unlocked = parsed.unlocked;
-                    }
-                }
-                if (parsed.difficulty) APP_STATE.difficulty = parsed.difficulty;
-                if (parsed.currentLevel) APP_STATE.currentLevel = parsed.currentLevel;
-            }
-        } catch (e) { console.warn("LocalStorage access denied."); }
+        // --- Core UI Functions ---
+        function t(key) { return i18n[state.lang][key] || key; }
+
+        function loadProgress() {
+            state.unlockedLevels = JSON.parse(localStorage.getItem(`algo_unlocked_${state.difficulty}`)) || [1];
+            state.completedLevels = JSON.parse(localStorage.getItem(`algo_completed_${state.difficulty}`)) || [];
+        }
 
         function saveProgress() {
-            try { 
-                localStorage.setItem('algoGameProgress', JSON.stringify({ 
-                    unlocked: APP_STATE.unlocked,
-                    difficulty: APP_STATE.difficulty,
-                    currentLevel: APP_STATE.currentLevel
-                })); 
-            }
-            catch (e) { /* ignore */ }
+            localStorage.setItem(`algo_unlocked_${state.difficulty}`, JSON.stringify(state.unlockedLevels));
+            localStorage.setItem(`algo_completed_${state.difficulty}`, JSON.stringify(state.completedLevels));
         }
 
-        /* ==========================================================================
-           2. Localization Dictionary (Korean / English)
-           ========================================================================== */
-        const DICT = {
-            ko: {
-                appTitle: "알고리즘 교실",
-                courseTitle: "과정을 선택하세요",
-                courseBeginner: "초급", courseBeginnerDesc: "기초를 다지는 쉬운 난이도",
-                courseIntermediate: "중급", courseIntermediateDesc: "조금 더 복잡한 문제 도전",
-                courseAdvanced: "고급", courseAdvancedDesc: "알고리즘 마스터를 위한 극한 난이도",
-                btnBackCourse: "과정 선택으로",
-                levelSelect: "단계 선택",
-                hintLabel: "힌트",
-                restartLabel: "다시하기",
-                resetBtn: "진도 초기화",
-                locked: "잠김",
-                btnConfirm: "확인",
-                btnNext: "다음 단계로",
-                btnRun: "실행하기",
-                btnReset: "다시하기",
-                diffBadge: { beginner: "🌱 초급", intermediate: "🚀 중급", advanced: "🔥 고급" },
-                levels: [
-                    {
-                        title: "로봇 청소기 탈출 (순차/반복)",
-                        hint: "오른쪽으로 몇 칸, 아래로 몇 칸을 가야 할지 먼저 세어보세요! 장애물(🧱)을 피해야 합니다.",
-                        successTitle: "탈출 성공!",
-                        successMsg: "축하합니다! 컴퓨터에게 명령을 내릴 때는 순서(순차)가 매우 중요하며, 같은 동작은 반복할 수 있습니다."
-                    },
-                    {
-                        title: "비밀번호 해킹 (이진 탐색)",
-                        hint: "범위의 정중앙을 계속 찔러보세요. 남은 범위를 계속 절반으로 줄여나가는 것이 핵심입니다!",
-                        successTitle: "해킹 완료!",
-                        successMsg: "대단해요! 정답의 범위를 절반씩 줄여나가는 방식을 '이진 탐색(Binary Search)'이라고 합니다. 데이터가 많을수록 엄청난 효율을 자랑하죠."
-                    },
-                    {
-                        title: "막대 그래프 정렬 (정렬)",
-                        hint: "가장 낮은 막대를 찾아서 첫 번째 자리로 보내고, 그 다음 낮은 막대를 두 번째 자리로 보내는 방식을 반복해 보세요. (선택 정렬)",
-                        successTitle: "정렬 완벽해요!",
-                        successMsg: "정렬(Sorting)은 뒤죽박죽인 데이터를 순서대로 나열하는 것입니다. 데이터가 정렬되어 있으면 원하는 정보를 훨씬 빠르게 찾을 수 있어요."
-                    },
-                    {
-                        title: "도둑의 배낭 (그리디 알고리즘)",
-                        hint: "어떤 보석부터 담아야 할까요? 1kg당 가치가 가장 높은 보석을 먼저 선택하는 '탐욕스러운' 전략을 사용해보세요!",
-                        successTitle: "최고의 도둑!",
-                        successMsg: "그리디(Greedy) 알고리즘은 매 순간 가장 좋아 보이는 선택을 하는 방식입니다. 항상 정답은 아니지만, 특정 상황에서는 완벽한 해결책이 됩니다."
-                    },
-                    {
-                        title: "최단 경로 찾기 (다익스트라)",
-                        hint: "직선 거리가 항상 빠른 것은 아닙니다! 다른 노드를 거쳐가는 것이 숫자의 합이 더 적을 수도 있어요.",
-                        successTitle: "최단 경로 발견!",
-                        successMsg: "다익스트라(Dijkstra) 알고리즘은 내비게이션의 핵심 원리입니다! 연결된 길들을 탐색하며 목적지까지의 가장 짧은 거리를 확실하게 찾아냅니다."
-                    }
-                ],
-                gameUI: {
-                    l1_up: "위", l1_down: "아래", l1_left: "왼", l1_right: "오른", l1_clear: "되돌리기",
-                    l2_placeholder: "숫자 입력", l2_submit: "입력", l2_up: "UP! ⬆️", l2_down: "DOWN! ⬇️", l2_left: "남은 기회: ", l2_fail: "실패! 정답은 ",
-                    l4_capacity: "배낭 용량: ", l4_value: "현재 가치: ",
-                    l5_start: "출발", l5_end: "도착", l5_current: "현재 비용: ", l5_target: "목표 비용: "
-                }
-            },
-            en: {
-                appTitle: "Algorithm Class",
-                courseTitle: "Select a Course",
-                courseBeginner: "Beginner", courseBeginnerDesc: "Easy difficulty to build basics",
-                courseIntermediate: "Intermediate", courseIntermediateDesc: "Challenge with more complex problems",
-                courseAdvanced: "Advanced", courseAdvancedDesc: "Extreme difficulty for masters",
-                btnBackCourse: "Back to Courses",
-                levelSelect: "Select Level",
-                hintLabel: "Hint",
-                restartLabel: "Restart",
-                resetBtn: "Reset Progress",
-                locked: "Locked",
-                btnConfirm: "Confirm",
-                btnNext: "Next Level",
-                btnRun: "Run",
-                btnReset: "Reset",
-                diffBadge: { beginner: "🌱 Beginner", intermediate: "🚀 Intermediate", advanced: "🔥 Advanced" },
-                levels: [
-                    {
-                        title: "Robot Vacuum Escape",
-                        hint: "Count how many steps right and down you need to reach the target! Avoid obstacles(🧱).",
-                        successTitle: "Escape Successful!",
-                        successMsg: "Congratulations! In programming, the order of commands (sequence) is crucial, and repeating patterns is the foundation."
-                    },
-                    {
-                        title: "Password Hacking",
-                        hint: "Always guess the exact middle of the range! Halving the remaining range is the key.",
-                        successTitle: "Hacking Complete!",
-                        successMsg: "Awesome! Halving the search space each time is called 'Binary Search'. It's incredibly efficient for large data!"
-                    },
-                    {
-                        title: "Bar Graph Sorting",
-                        hint: "Find the shortest bar and swap it to the first position. Then find the next shortest... (Selection Sort)",
-                        successTitle: "Perfectly Sorted!",
-                        successMsg: "Sorting organizes mixed data into order. When data is sorted, finding information becomes much faster."
-                    },
-                    {
-                        title: "Thief's Knapsack",
-                        hint: "Which item to pick first? Try a 'greedy' strategy: pick the item with the highest value per 1kg!",
-                        successTitle: "Master Thief!",
-                        successMsg: "The Greedy algorithm makes the locally optimal choice at each step. It's very fast and effective in specific situations!"
-                    },
-                    {
-                        title: "Shortest Path",
-                        hint: "The direct path isn't always the fastest! Sometimes passing through other nodes yields a smaller sum.",
-                        successTitle: "Path Found!",
-                        successMsg: "Dijkstra's algorithm is the core of GPS navigation! It explores paths to reliably find the shortest route."
-                    }
-                ],
-                gameUI: {
-                    l1_up: "Up", l1_down: "Down", l1_left: "Left", l1_right: "Right", l1_clear: "Undo",
-                    l2_placeholder: "Enter number", l2_submit: "Guess", l2_up: "UP! ⬆️", l2_down: "DOWN! ⬇️", l2_left: "Attempts left: ", l2_fail: "Failed! Answer was ",
-                    l4_capacity: "Capacity: ", l4_value: "Total Value: ",
-                    l5_start: "Start", l5_end: "End", l5_current: "Current Cost: ", l5_target: "Target Cost: "
-                }
-            }
-        };
+        function updateUI() {
+            loadProgress();
+            
+            document.getElementById('header-title').innerText = t('header');
+            document.getElementById('welcome-msg').innerText = t('welcome');
+            document.getElementById('welcome-sub').innerText = t('welcomeSub');
+            document.getElementById('select-diff-text').innerText = t('selectDiff');
+            document.getElementById('label-easy').innerText = t('easy');
+            document.getElementById('label-medium').innerText = t('medium');
+            document.getElementById('label-hard').innerText = t('hard');
+            document.getElementById('reset-progress-text').innerText = t('resetProgress');
+            document.getElementById('lang-toggle-text').innerText = state.lang === 'KO' ? 'EN' : 'KO';
+            document.getElementById('btn-retry-text').innerText = t('retry');
+            document.getElementById('btn-action-text').innerText = t('execute');
+            
+            const diffBadge = document.getElementById('difficulty-badge');
+            diffBadge.innerText = t(state.difficulty);
+            diffBadge.classList.remove('hidden');
 
-        /* ==========================================================================
-           3. Core DOM & UI Functions
-           ========================================================================== */
-        const el = id => document.getElementById(id);
+            const diffs = ['easy', 'medium', 'hard'];
+            const colors = { easy: 'green', medium: 'yellow', hard: 'red' };
+            diffs.forEach(d => {
+                const btn = document.getElementById(`btn-diff-${d}`);
+                btn.className = `diff-btn p-4 rounded-xl border-2 transition-all flex flex-col items-center border-${colors[d]}-200 bg-${colors[d]}-50 text-${colors[d]}-700 hover:bg-${colors[d]}-100`;
+                if (state.difficulty === d) {
+                    btn.classList.add('diff-btn-active', 'ring-4', `ring-indigo-300`);
+                }
+            });
+
+            renderLevelGrid();
+            lucide.createIcons();
+        }
+
+        function toggleLang() {
+            state.lang = state.lang === 'KO' ? 'EN' : 'KO';
+            localStorage.setItem('algo_lang', state.lang);
+            updateUI();
+            if (document.getElementById('screen-game').classList.contains('hidden') === false) {
+                renderGameFrame();
+            }
+        }
 
         function setDifficulty(diff) {
-            APP_STATE.difficulty = diff;
-            APP_STATE.currentLevel = 1;
-            saveProgress();
-            renderApp();
+            state.difficulty = diff;
+            localStorage.setItem('algo_diff', diff);
+            updateUI();
         }
 
-        function backToCourse() {
-            APP_STATE.difficulty = null;
-            saveProgress();
-            renderApp();
-        }
-
-        window.restartCurrentLevel = () => {
-            if (APP_STATE.currentLevel === 1) initLevel1();
-            if (APP_STATE.currentLevel === 2) initLevel2();
-            if (APP_STATE.currentLevel === 3) initLevel3();
-            if (APP_STATE.currentLevel === 4) initLevel4();
-            if (APP_STATE.currentLevel === 5) initLevel5();
-        };
-
-        function renderApp() {
-            const t = DICT[APP_STATE.lang];
+        function renderLevelGrid() {
+            const grid = document.getElementById('level-grid');
+            grid.innerHTML = '';
             
-            // Header & Globals
-            el('app-title').textContent = t.appTitle;
-
-            if (!APP_STATE.difficulty) {
-                // Show Course Selector
-                el('course-selector').classList.remove('hidden');
-                el('game-main').classList.add('hidden');
-                el('game-main').classList.remove('flex');
+            i18n[state.lang].levels.forEach((lv, index) => {
+                const lvNum = index + 1;
+                const isLocked = !state.unlockedLevels.includes(lvNum);
+                const isCompleted = state.completedLevels.includes(lvNum);
+                const card = document.createElement('div');
+                card.className = `level-card p-5 rounded-2xl bg-white border border-gray-100 shadow-sm transition-all ${isLocked ? 'locked' : 'hover:shadow-md hover:-translate-y-1 cursor-pointer'}`;
                 
-                el('course-title').textContent = t.courseTitle;
-                el('course-beginner').textContent = t.courseBeginner;
-                el('course-beginner-desc').textContent = t.courseBeginnerDesc;
-                el('course-intermediate').textContent = t.courseIntermediate;
-                el('course-intermediate-desc').textContent = t.courseIntermediateDesc;
-                el('course-advanced').textContent = t.courseAdvanced;
-                el('course-advanced-desc').textContent = t.courseAdvancedDesc;
-            } else {
-                // Show Game Main
-                el('course-selector').classList.add('hidden');
-                el('game-main').classList.remove('hidden');
-                el('game-main').classList.add('flex');
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-indigo-500 uppercase">Level ${lvNum}</span>
+                        ${isLocked ? '<i data-lucide="lock" class="w-4 h-4 text-gray-400"></i>' : (isCompleted ? '<i data-lucide="check-circle-2" class="w-4 h-4 text-green-500"></i>' : '<i data-lucide="unlock" class="w-4 h-4 text-blue-500"></i>')}
+                    </div>
+                    <h4 class="text-lg font-bold text-gray-800">${lv.t}</h4>
+                    <p class="text-sm text-gray-500 mb-4">${lv.d}</p>
+                    <div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                        <div class="h-full bg-indigo-500 transition-all duration-500" style="width: ${isCompleted ? '100%' : '0%'}"></div>
+                    </div>
+                `;
 
-                el('level-select-title').textContent = t.levelSelect;
-                el('back-course-btn').textContent = t.btnBackCourse;
-                el('reset-btn').textContent = t.resetBtn;
-                el('hint-label').textContent = t.hintLabel;
-                el('restart-label').textContent = t.restartLabel;
-                
-                // Set Difficulty Badge
-                const badge = el('diff-badge');
-                badge.textContent = t.diffBadge[APP_STATE.difficulty];
-                badge.className = `px-2 py-1 text-xs font-bold rounded text-white ${
-                    APP_STATE.difficulty === 'beginner' ? 'bg-green-500' : 
-                    APP_STATE.difficulty === 'intermediate' ? 'bg-blue-500' : 'bg-red-500'
-                }`;
-
-                // Level Selector
-                const grid = el('level-grid');
-                grid.innerHTML = '';
-                const unlockedArr = APP_STATE.unlocked[APP_STATE.difficulty] || [1];
-                for (let i = 1; i <= 5; i++) {
-                    const isUnlocked = unlockedArr.includes(i);
-                    const btn = document.createElement('button');
-                    btn.className = `p-3 rounded-lg text-sm font-bold border-2 material-button flex flex-col items-center justify-center gap-1 ${
-                        APP_STATE.currentLevel === i ? 'border-blue-500 bg-blue-50 text-blue-700' :
-                        isUnlocked ? 'border-gray-200 bg-white text-gray-700 hover:border-blue-300' :
-                        'border-gray-100 bg-gray-100 text-gray-400 cursor-not-allowed'
-                    }`;
-                    btn.innerHTML = `
-                        <span class="text-xl">${isUnlocked ? (i===1?'🤖':i===2?'🔍':i===3?'📊':i===4?'💎':'🗺️') : '🔒'}</span>
-                        <span>${isUnlocked ? i + (APP_STATE.lang==='ko'?'단계':'') : t.locked}</span>
-                    `;
-                    if (isUnlocked) {
-                        btn.onclick = () => { APP_STATE.currentLevel = i; renderApp(); };
-                    }
-                    grid.appendChild(btn);
+                if (!isLocked) {
+                    card.onclick = () => startLevel(lvNum);
                 }
-
-                // Game Content Init
-                const levelData = t.levels[APP_STATE.currentLevel - 1];
-                el('game-title').textContent = levelData.title;
-                
-                // Re-trigger animation
-                const container = el('game-container');
-                container.classList.remove('fade-in');
-                void container.offsetWidth; // trigger reflow
-                container.classList.add('fade-in');
-
-                restartCurrentLevel(); // Load Game Logic
-            }
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
         }
 
-        // Modals
-        function showModal(title, body, type="info", onConfirm=null) {
-            const m = el('modal');
-            const box = el('modal-content-box');
-            el('modal-title').textContent = title;
-            el('modal-body').textContent = body;
-            
-            const icon = el('modal-icon');
-            const confirmBtn = el('modal-btn');
-            const cancelBtn = el('modal-cancel-btn');
-            
-            cancelBtn.classList.add('hidden'); // Reset cancel button
+        function goHome() {
+            document.getElementById('screen-home').classList.remove('hidden');
+            document.getElementById('screen-game').classList.add('hidden');
+            updateUI();
+        }
 
-            if(type === 'success') {
-                icon.innerHTML = '🎉';
-                icon.className = 'w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl bg-green-100';
-                confirmBtn.textContent = APP_STATE.currentLevel < 5 ? DICT[APP_STATE.lang].btnNext : DICT[APP_STATE.lang].btnConfirm;
-                confirmBtn.className = 'bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full font-bold material-button';
-                fireConfetti();
-                
-                // Unlock next level in current difficulty
-                let unlockedArr = APP_STATE.unlocked[APP_STATE.difficulty];
-                if (APP_STATE.currentLevel < 5 && !unlockedArr.includes(APP_STATE.currentLevel + 1)) {
-                    unlockedArr.push(APP_STATE.currentLevel + 1);
-                    saveProgress();
-                }
-            } else if(type === 'confirm') {
-                icon.innerHTML = '⚠️';
-                icon.className = 'w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl bg-red-100';
-                confirmBtn.textContent = DICT[APP_STATE.lang].btnConfirm;
-                confirmBtn.className = 'bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-full font-bold material-button';
-                cancelBtn.classList.remove('hidden');
-                cancelBtn.textContent = APP_STATE.lang === 'ko' ? '취소' : 'Cancel';
-            } else {
-                icon.innerHTML = '💡';
-                icon.className = 'w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl bg-amber-100';
-                confirmBtn.textContent = DICT[APP_STATE.lang].btnConfirm;
-                confirmBtn.className = 'bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-bold material-button';
-            }
+        // --- Custom Modal System ---
+        function showModal({ title, body, icon, buttons }) {
+            const container = document.getElementById('modal-container');
+            const content = document.getElementById('modal-content');
+            
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-body').innerText = body;
+            
+            const iconEl = document.getElementById('modal-icon');
+            iconEl.innerHTML = icon || '';
+            
+            const footer = document.getElementById('modal-footer');
+            footer.innerHTML = '';
+            
+            buttons.forEach(btn => {
+                const b = document.createElement('button');
+                b.className = `p-3 rounded-xl font-bold transition-colors ${btn.primary ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`;
+                b.innerText = btn.text;
+                b.onclick = () => {
+                    closeModal();
+                    if (btn.onClick) btn.onClick();
+                };
+                footer.appendChild(b);
+            });
 
-            m.classList.remove('hidden');
+            container.classList.remove('hidden');
             setTimeout(() => {
-                m.classList.remove('opacity-0');
-                box.classList.remove('scale-95');
-                box.classList.add('scale-100');
+                content.classList.remove('scale-95', 'opacity-0');
             }, 10);
-
-            confirmBtn.onclick = () => {
-                closeModal();
-                if(type === 'success' && APP_STATE.currentLevel < 5) {
-                    APP_STATE.currentLevel++;
-                    renderApp();
-                }
-                if(type === 'confirm' && onConfirm) {
-                    onConfirm();
-                }
-            };
-            
-            cancelBtn.onclick = () => closeModal();
+            lucide.createIcons();
         }
 
         function closeModal() {
-            const m = el('modal');
-            const box = el('modal-content-box');
-            m.classList.add('opacity-0');
-            box.classList.remove('scale-100');
-            box.classList.add('scale-95');
-            setTimeout(() => m.classList.add('hidden'), 300);
+            const content = document.getElementById('modal-content');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                document.getElementById('modal-container').classList.add('hidden');
+            }, 200);
         }
 
-        function fireConfetti() {
-            const colors = ['#fce18a', '#ff726d', '#b48def', '#f4306d'];
-            for(let i=0; i<50; i++) {
-                const conf = document.createElement('div');
-                conf.className = 'confetti';
-                conf.style.left = Math.random() * 100 + 'vw';
-                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                conf.style.animationDuration = (Math.random() * 2 + 2) + 's';
-                document.body.appendChild(conf);
-                setTimeout(() => conf.remove(), 4000);
-            }
-        }
-
-        // Event Listeners
-        el('lang-toggle').onclick = () => {
-            APP_STATE.lang = APP_STATE.lang === 'ko' ? 'en' : 'ko';
-            renderApp();
-        };
-
-        el('hint-btn').onclick = () => {
-            const t = DICT[APP_STATE.lang].levels[APP_STATE.currentLevel - 1];
-            showModal(DICT[APP_STATE.lang].hintLabel, t.hint, "hint");
-        };
-
-        el('reset-btn').onclick = () => {
-            const title = APP_STATE.lang === 'ko' ? "진도 초기화" : "Reset Progress";
-            const msg = APP_STATE.lang === 'ko' ? 
-                "진도를 초기화하시겠습니까? 1단계로 돌아가며 2~5단계는 다시 잠깁니다." : 
-                "Reset progress? Returns to Level 1 and locks Levels 2-5.";
-                
-            showModal(title, msg, "confirm", () => {
-                // 1. 브라우저 저장소 데이터 완전 삭제
-                localStorage.removeItem('algoGameProgress');
-                
-                // 2. 상태 초기화 (현재 난이도 유지, 1단계로 리셋)
-                APP_STATE.unlocked = {
-                    beginner: [1],
-                    intermediate: [1],
-                    advanced: [1]
-                };
-                APP_STATE.currentLevel = 1;
-                
-                // 3. 백그라운드 게임 루프 정지
-                if (window.gameInterval) clearInterval(window.gameInterval);
-                
-                // 4. 즉각적으로 화면 렌더링
-                saveProgress();
-                renderApp();
-            });
-        };
-
-        /* ==========================================================================
-           4. Game Logics (Level 1 ~ 5) WITH DIFFICULTY SCALING
-           ========================================================================== */
-        
-        // --- LEVEL 1: Sequence ---
-        function initLevel1() {
-            const board = el('game-board');
-            const ui = DICT[APP_STATE.lang].gameUI;
-            let cmds = [];
-            
-            // Difficulty scaling with Random Maps
-            let mapSize, start, target, blocks, gridColsClass;
-            const randomMapIndex = Math.floor(Math.random() * 3); // 3가지 무작위 맵 패턴
-            
-            if (APP_STATE.difficulty === 'beginner') {
-                mapSize = 4; start = {x:0, y:0}; gridColsClass = 'grid-cols-4';
-                const maps = [
-                    { t: {x:3, y:3}, b: [{x:1, y:1}, {x:2, y:2}] },
-                    { t: {x:3, y:1}, b: [{x:2, y:0}, {x:2, y:1}] },
-                    { t: {x:2, y:3}, b: [{x:0, y:2}, {x:1, y:2}] }
-                ];
-                target = maps[randomMapIndex].t; blocks = maps[randomMapIndex].b;
-            } else if (APP_STATE.difficulty === 'intermediate') {
-                mapSize = 5; start = {x:0, y:0}; gridColsClass = 'grid-cols-5';
-                const maps = [
-                    { t: {x:4, y:4}, b: [{x:1, y:1}, {x:2, y:2}, {x:3, y:1}, {x:1, y:3}] },
-                    { t: {x:0, y:4}, b: [{x:0, y:2}, {x:1, y:2}, {x:2, y:2}, {x:3, y:2}] },
-                    { t: {x:4, y:2}, b: [{x:2, y:0}, {x:2, y:1}, {x:2, y:3}, {x:2, y:4}] }
-                ];
-                target = maps[randomMapIndex].t; blocks = maps[randomMapIndex].b;
-            } else {
-                mapSize = 6; start = {x:0, y:0}; gridColsClass = 'grid-cols-6';
-                const maps = [
-                    { t: {x:5, y:5}, b: [{x:1, y:1}, {x:2, y:2}, {x:3, y:1}, {x:1, y:3}, {x:4, y:4}, {x:2, y:4}, {x:4, y:2}] },
-                    { t: {x:5, y:0}, b: [{x:1, y:0}, {x:1, y:1}, {x:3, y:1}, {x:3, y:2}, {x:5, y:2}, {x:4, y:4}, {x:5, y:4}] },
-                    { t: {x:0, y:5}, b: [{x:0, y:2}, {x:1, y:2}, {x:2, y:2}, {x:3, y:4}, {x:4, y:4}, {x:5, y:4}, {x:2, y:5}] }
-                ];
-                target = maps[randomMapIndex].t; blocks = maps[randomMapIndex].b;
-            }
-
-            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
-                `방향 버튼을 조합하여 로봇(🤖)이 목표 지점(🎯)에 도달하게 하세요. 장애물(🧱)을 조심하세요!` : 
-                `Combine direction buttons to make the robot(🤖) reach the target(🎯). Avoid obstacles(🧱)!`;
-
-            board.innerHTML = `
-                <div id="l1-grid" class="grid ${gridColsClass} gap-1 bg-gray-300 border-4 border-gray-400 p-1 mb-6 rounded"></div>
-                <div class="flex flex-col items-center gap-3 w-full max-w-sm">
-                    <div id="l1-cmds" class="flex gap-1 bg-white p-2 rounded w-full min-h-[40px] shadow overflow-x-auto items-center"></div>
-                    <div class="grid grid-cols-3 gap-2 w-full text-center">
-                        <div></div>
-                        <button class="bg-gray-200 hover:bg-gray-300 p-2 rounded font-bold" onclick="l1_add('U')">⬆️ ${ui.l1_up}</button>
-                        <div></div>
-                        <button class="bg-gray-200 hover:bg-gray-300 p-2 rounded font-bold" onclick="l1_add('L')">⬅️ ${ui.l1_left}</button>
-                        <button class="bg-gray-200 hover:bg-gray-300 p-2 rounded font-bold" onclick="l1_add('D')">⬇️ ${ui.l1_down}</button>
-                        <button class="bg-gray-200 hover:bg-gray-300 p-2 rounded font-bold" onclick="l1_add('R')">➡️ ${ui.l1_right}</button>
-                    </div>
-                    <div class="flex gap-2 w-full mt-2">
-                        <button class="flex-1 bg-red-100 text-red-700 py-2 rounded font-bold hover:bg-red-200" onclick="l1_clear()">${ui.l1_clear}</button>
-                        <button class="flex-1 bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700" onclick="l1_run()">${DICT[APP_STATE.lang].btnRun}</button>
-                    </div>
-                </div>
-            `;
-
-            const drawGrid = (roboX, roboY) => {
-                const grid = el('l1-grid');
-                grid.innerHTML = '';
-                for(let y=0; y<mapSize; y++){
-                    for(let x=0; x<mapSize; x++){
-                        let cell = document.createElement('div');
-                        cell.className = 'w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-white flex items-center justify-center text-xl md:text-2xl';
-                        if(x===roboX && y===roboY) cell.innerHTML = '🤖';
-                        else if(x===target.x && y===target.y) cell.innerHTML = '🎯';
-                        else if(blocks.some(b => b.x===x && b.y===y)) { cell.classList.add('bg-gray-800'); cell.innerHTML='🧱'; }
-                        grid.appendChild(cell);
+        function confirmResetProgress() {
+            showModal({
+                title: t('confirmReset'),
+                body: t('resetMsg'),
+                icon: '<div class="p-3 bg-red-100 rounded-full"><i data-lucide="alert-triangle" class="text-red-600 w-8 h-8"></i></div>',
+                buttons: [
+                    { text: t('cancel') },
+                    { 
+                        text: t('resetProgress'), 
+                        primary: true, 
+                        onClick: () => {
+                            state.unlockedLevels = [1];
+                            state.completedLevels = [];
+                            saveProgress();
+                            updateUI();
+                        } 
                     }
-                }
-            };
-            drawGrid(start.x, start.y);
+                ]
+            });
+        }
 
-            window.l1_add = (c) => { 
-                if(cmds.length > 20) return;
-                cmds.push(c); 
-                renderCmds(); 
-            };
-            window.l1_clear = () => { 
-                if(cmds.length > 0) {
-                    cmds.pop(); 
-                    renderCmds(); 
-                }
-            };
-            const renderCmds = () => {
-                const dict = { 'U':'⬆️', 'D':'⬇️', 'L':'⬅️', 'R':'➡️' };
-                el('l1-cmds').innerHTML = cmds.map(c => `<span class="bg-gray-100 px-2 py-1 rounded text-sm">${dict[c]}</span>`).join('');
-            };
+        function showHint() {
+            showModal({
+                title: t('hint'),
+                body: i18n[state.lang].hints[state.currentLevel - 1],
+                icon: '<div class="p-3 bg-yellow-100 rounded-full"><i data-lucide="lightbulb" class="text-yellow-600 w-8 h-8"></i></div>',
+                buttons: [{ text: t('close'), primary: true }]
+            });
+        }
 
-            window.l1_run = () => {
-                let currX = start.x, currY = start.y;
-                let i = 0;
-                
-                // 기존에 실행 중인 타이머가 있다면 초기화
-                if (window.gameInterval) clearInterval(window.gameInterval);
-                
-                window.gameInterval = setInterval(() => {
-                    if(i >= cmds.length) {
-                        clearInterval(window.gameInterval);
-                        if(currX === target.x && currY === target.y) {
-                            const lv = DICT[APP_STATE.lang].levels[0];
-                            setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 300);
-                        } else {
-                            setTimeout(() => { 
-                                showModal(
-                                    APP_STATE.lang === 'ko' ? "실패!" : "Failed!",
-                                    APP_STATE.lang === 'ko' ? "경로를 벗어났거나 목표에 도달하지 못했습니다. 다시 시도하세요." : "Failed to reach the target. Try again.",
-                                    "info"
-                                );
-                                drawGrid(start.x, start.y); 
-                            }, 300);
+        // --- Game Logic Controllers ---
+
+        function startLevel(lv) {
+            state.currentLevel = lv;
+            document.getElementById('screen-home').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            renderGameFrame();
+            initLevelLogic();
+        }
+
+        function renderGameFrame() {
+            const lvInfo = i18n[state.lang].levels[state.currentLevel - 1];
+            document.getElementById('game-title').innerText = lvInfo.t;
+            document.getElementById('game-step').innerText = `Level ${state.currentLevel}`;
+            lucide.createIcons();
+        }
+
+        function retryLevel() {
+            initLevelLogic();
+        }
+
+        function completeLevel() {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+
+            if (!state.completedLevels.includes(state.currentLevel)) {
+                state.completedLevels.push(state.currentLevel);
+            }
+
+            const nextLevel = state.currentLevel + 1;
+            if (!state.unlockedLevels.includes(nextLevel) && nextLevel <= 5) {
+                state.unlockedLevels.push(nextLevel);
+            }
+            
+            saveProgress();
+
+            showModal({
+                title: t('success'),
+                body: i18n[state.lang].principles[state.currentLevel - 1],
+                icon: '<div class="p-3 bg-green-100 rounded-full"><i data-lucide="party-popper" class="text-green-600 w-8 h-8"></i></div>',
+                buttons: [
+                    { text: t('check'), onClick: goHome },
+                    nextLevel <= 5 ? { text: t('next'), primary: true, onClick: () => startLevel(nextLevel) } : null
+                ].filter(Boolean)
+            });
+        }
+
+        // --- Specific Level Implementations ---
+
+        function initLevelLogic() {
+            const container = document.getElementById('game-container');
+            container.innerHTML = '';
+            const actionBtn = document.getElementById('primary-action-btn');
+            actionBtn.disabled = false;
+            
+            state.isProcessing = false;
+
+            switch(state.currentLevel) {
+                case 1: setupLevel1(container); break;
+                case 2: setupLevel2(container); break;
+                case 3: setupLevel3(container); break;
+                case 4: setupLevel4(container); break;
+                case 5: setupLevel5(container); break;
+            }
+        }
+
+        // LEVEL 1: Robot Path (Fixed Obstacle Check)
+        function setupLevel1(container) {
+            const size = state.difficulty === 'easy' ? 4 : (state.difficulty === 'medium' ? 5 : 6);
+            let grid = [];
+            let robotPos = { x: 0, y: 0 };
+            let goalPos = { x: size - 1, y: size - 1 };
+
+            // BFS to verify if path exists
+            function isPathPossible(g) {
+                let q = [[0, 0]];
+                let visited = new Set(['0,0']);
+                while(q.length > 0) {
+                    let [cx, cy] = q.shift();
+                    if(cx === size-1 && cy === size-1) return true;
+                    
+                    [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dx, dy]) => {
+                        let nx = cx + dx, ny = cy + dy;
+                        if(nx >= 0 && nx < size && ny >= 0 && ny < size && g[ny][nx] === 0 && !visited.has(`${nx},${ny}`)) {
+                            visited.add(`${nx},${ny}`);
+                            q.push([nx, ny]);
                         }
+                    });
+                }
+                return false;
+            }
+
+            // Generate solvable grid
+            let solvable = false;
+            let attempts = 0;
+            while(!solvable && attempts < 100) {
+                grid = Array(size).fill().map(() => Array(size).fill(0));
+                const obsCount = Math.floor(size * size * 0.2);
+                for(let i=0; i<obsCount; i++) {
+                    let rx = Math.floor(Math.random()*size);
+                    let ry = Math.floor(Math.random()*size);
+                    if((rx===0 && ry===0) || (rx===size-1 && ry===size-1)) continue;
+                    grid[ry][rx] = 1;
+                }
+                if(isPathPossible(grid)) solvable = true;
+                attempts++;
+            }
+
+            let commands = [];
+            const renderGrid = () => {
+                container.innerHTML = `
+                    <div class="grid gap-1 mb-4" style="grid-template-columns: repeat(${size}, minmax(0, 1fr)); width: 280px;">
+                        ${grid.map((row, y) => row.map((cell, x) => `
+                            <div class="grid-cell border rounded-md flex items-center justify-center relative ${cell === 1 ? 'bg-gray-800 text-white' : 'bg-indigo-50'}">
+                                ${x === robotPos.x && y === robotPos.y ? '<span class="robot-move text-2xl">🤖</span>' : ''}
+                                ${x === goalPos.x && y === goalPos.y ? '<span class="text-2xl">🚩</span>' : ''}
+                                ${cell === 1 ? '<i data-lucide="box" class="w-5 h-5 opacity-40"></i>' : ''}
+                            </div>
+                        `).join('')).join('')}
+                    </div>
+                    <div class="w-full">
+                        <div class="flex flex-wrap gap-2 justify-center mb-4 min-h-[40px]" id="l1-command-queue">
+                            ${commands.map((cmd, idx) => `<div class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold">${cmd}</div>`).join('')}
+                            ${commands.length === 0 ? `<span class="text-gray-400 text-sm italic">${state.lang === 'KO' ? '명령어를 입력하세요' : 'Enter commands'}</span>` : ''}
+                        </div>
+                        <div class="grid grid-cols-4 gap-2 px-4">
+                            <button onclick="window.addL1Cmd('UP')" class="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"><i data-lucide="chevron-up" class="mx-auto"></i></button>
+                            <button onclick="window.addL1Cmd('DOWN')" class="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"><i data-lucide="chevron-down" class="mx-auto"></i></button>
+                            <button onclick="window.addL1Cmd('LEFT')" class="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"><i data-lucide="chevron-left" class="mx-auto"></i></button>
+                            <button onclick="window.addL1Cmd('RIGHT')" class="p-2 bg-gray-100 rounded-lg hover:bg-gray-200"><i data-lucide="chevron-right" class="mx-auto"></i></button>
+                            <button onclick="window.undoL1Cmd()" class="col-span-4 p-2 bg-red-50 text-red-600 rounded-lg font-bold text-xs hover:bg-red-100">UNDO</button>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+            };
+
+            window.addL1Cmd = (dir) => { 
+                if(commands.length < 15) { commands.push(dir); renderGrid(); } 
+            };
+            window.undoL1Cmd = () => { commands.pop(); renderGrid(); };
+            
+            document.getElementById('primary-action-btn').onclick = async () => {
+                if(state.isProcessing || commands.length === 0) return;
+                state.isProcessing = true;
+                
+                let tempPos = { x: 0, y: 0 };
+                for(let cmd of commands) {
+                    if(cmd === 'UP') tempPos.y--;
+                    if(cmd === 'DOWN') tempPos.y++;
+                    if(cmd === 'LEFT') tempPos.x--;
+                    if(cmd === 'RIGHT') tempPos.x++;
+                    
+                    robotPos = { ...tempPos };
+                    renderGrid();
+                    await new Promise(r => setTimeout(r, 400));
+                    
+                    if(robotPos.x < 0 || robotPos.x >= size || robotPos.y < 0 || robotPos.y >= size || grid[robotPos.y][robotPos.x] === 1) {
+                        showModal({ title: t('failed'), body: state.lang === 'KO' ? "벽이나 장애물에 부딪혔습니다!" : "You hit a wall or obstacle!", buttons: [{ text: t('retry'), onClick: retryLevel }] });
                         return;
                     }
-                    let c = cmds[i];
-                    let nx = currX, ny = currY;
-                    if(c==='U') ny--; if(c==='D') ny++; if(c==='L') nx--; if(c==='R') nx++;
-                    // Collision check
-                    if(nx>=0 && nx<mapSize && ny>=0 && ny<mapSize && !blocks.some(b=>b.x===nx && b.y===ny)) {
-                        currX = nx; currY = ny;
-                    }
-                    drawGrid(currX, currY);
-                    i++;
-                }, 400);
-            };
-        }
-
-        // --- LEVEL 2: Binary Search ---
-        function initLevel2() {
-            const board = el('game-board');
-            const ui = DICT[APP_STATE.lang].gameUI;
-            
-            // Difficulty scaling
-            const maxNum = APP_STATE.difficulty === 'beginner' ? 100 : (APP_STATE.difficulty === 'intermediate' ? 500 : 1000);
-            const maxAttempts = APP_STATE.difficulty === 'beginner' ? 7 : (APP_STATE.difficulty === 'intermediate' ? 9 : 10);
-            
-            let target = Math.floor(Math.random() * maxNum) + 1;
-            let attempts = maxAttempts;
-
-            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
-                `1부터 ${maxNum} 사이의 시스템 비밀번호를 맞춰보세요. (최대 ${maxAttempts}번 기회)` : 
-                `Guess the system password between 1 and ${maxNum}. (Max ${maxAttempts} attempts)`;
-
-            board.innerHTML = `
-                <div class="text-6xl mb-6" id="l2-icon">💻</div>
-                <div class="text-xl font-bold mb-4 text-blue-600" id="l2-feedback">???</div>
-                <div class="flex gap-2 w-full max-w-xs mb-4">
-                    <input type="number" id="l2-input" class="flex-1 border-2 border-gray-300 rounded px-3 py-2 text-center text-lg focus:border-blue-500 outline-none" placeholder="1 ~ ${maxNum}" min="1" max="${maxNum}">
-                    <button class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700" onclick="l2_guess()">${ui.l2_submit}</button>
-                </div>
-                <div class="text-gray-500 font-medium" id="l2-attempts">${ui.l2_left} ${attempts}</div>
-            `;
-
-            window.l2_guess = () => {
-                if(attempts <= 0) return;
-                const val = parseInt(el('l2-input').value);
-                if(isNaN(val) || val < 1 || val > maxNum) return;
+                }
                 
-                attempts--;
-                el('l2-attempts').textContent = `${ui.l2_left} ${attempts}`;
-                el('l2-input').value = '';
-                
-                if(val === target) {
-                    el('l2-feedback').textContent = val + " !!";
-                    el('l2-icon').textContent = "🔓";
-                    const lv = DICT[APP_STATE.lang].levels[1];
-                    setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 300);
-                } else if(val > target) {
-                    el('l2-feedback').textContent = val + " -> " + ui.l2_down;
-                    el('l2-feedback').className = "text-xl font-bold mb-4 text-red-500";
+                if(robotPos.x === goalPos.x && robotPos.y === goalPos.y) {
+                    completeLevel();
                 } else {
-                    el('l2-feedback').textContent = val + " -> " + ui.l2_up;
-                    el('l2-feedback').className = "text-xl font-bold mb-4 text-green-500";
-                }
-
-                if(attempts === 0 && val !== target) {
-                    el('l2-feedback').textContent = ui.l2_fail + target;
-                    setTimeout(() => initLevel2(), 2000);
+                    showModal({ title: t('failed'), body: state.lang === 'KO' ? "목표에 도달하지 못했습니다." : "Goal not reached.", buttons: [{ text: t('retry'), onClick: retryLevel }] });
                 }
             };
-            
-            el('l2-input').addEventListener('keypress', function(e) { if (e.key === 'Enter') l2_guess(); });
+
+            renderGrid();
         }
 
-        // --- LEVEL 3: Sorting ---
-        function initLevel3() {
-            const board = el('game-board');
-            
-            // Difficulty scaling with Random Array
-            let arrLength = APP_STATE.difficulty === 'beginner' ? 5 : (APP_STATE.difficulty === 'intermediate' ? 7 : 10);
-            
-            // Generate random unique values for bars
-            let pool = [15, 25, 35, 45, 55, 65, 75, 85, 95, 100];
-            pool.sort(() => Math.random() - 0.5); // Shuffle array
-            let arr = pool.slice(0, arrLength);
+        // LEVEL 2: Up-Down Binary Search
+        function setupLevel2(container) {
+            const range = state.difficulty === 'easy' ? 100 : (state.difficulty === 'medium' ? 500 : 1000);
+            const maxLife = state.difficulty === 'easy' ? 7 : (state.difficulty === 'medium' ? 9 : 10);
+            const target = Math.floor(Math.random() * range) + 1;
+            let life = maxLife;
+            let history = [];
 
-            let selectedIdx = null;
-
-            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
-                `두 개의 막대를 클릭하여 서로 위치를 바꿀 수 있습니다. 높이가 낮은 순서대로(오름차순) 정렬하세요.` : 
-                `Click two bars to swap them. Sort them in ascending order (lowest to highest).`;
-
-            board.innerHTML = `
-                <div id="l3-bars" class="flex items-end h-48 md:h-64 gap-1 md:gap-2 mb-8 w-full max-w-lg justify-center"></div>
-                <div class="text-gray-500 text-sm">Click two bars to swap them</div>
+            container.innerHTML = `
+                <div class="text-center w-full max-w-xs space-y-6">
+                    <div class="bg-indigo-600 p-8 rounded-3xl text-white shadow-inner">
+                        <p class="text-sm opacity-80 uppercase tracking-widest mb-1">Target Range</p>
+                        <h3 class="text-4xl font-black">1 ~ ${range}</h3>
+                    </div>
+                    <div class="flex justify-between items-center text-sm font-bold text-gray-500">
+                        <span>LIFE: <span id="l2-life" class="text-red-500">${life}</span> / ${maxLife}</span>
+                        <span id="l2-status" class="text-indigo-600">준비 완료</span>
+                    </div>
+                    <input type="number" id="l2-input" class="w-full p-4 border-2 border-gray-200 rounded-xl text-center text-2xl font-bold focus:border-indigo-500 outline-none" placeholder="?">
+                    <div id="l2-history" class="h-20 overflow-y-auto text-xs text-gray-400 flex flex-wrap gap-1 justify-center"></div>
+                </div>
             `;
+
+            const input = document.getElementById('l2-input');
+            const actionBtn = document.getElementById('primary-action-btn');
+            
+            actionBtn.onclick = () => {
+                const val = parseInt(input.value);
+                if(isNaN(val)) return;
+                
+                life--;
+                document.getElementById('l2-life').innerText = life;
+                
+                let res = "";
+                if(val === target) {
+                    completeLevel();
+                    return;
+                } else if (val < target) {
+                    res = "UP ⬆️";
+                } else {
+                    res = "DOWN ⬇️";
+                }
+                
+                history.push(`${val}: ${res}`);
+                document.getElementById('l2-status').innerText = res;
+                document.getElementById('l2-history').innerHTML = history.map(h => `<span class="bg-gray-100 px-2 py-1 rounded">${h}</span>`).join('');
+                input.value = '';
+                input.focus();
+
+                if(life <= 0 && val !== target) {
+                    showModal({ title: t('failed'), body: `${state.lang === 'KO' ? "모든 기회를 소진했습니다. 정답은" : "Out of lives! The answer was"} ${target}`, buttons: [{ text: t('retry'), onClick: retryLevel }] });
+                }
+            };
+        }
+
+        // LEVEL 3: Selection Sorting
+        function setupLevel3(container) {
+            const count = state.difficulty === 'easy' ? 5 : (state.difficulty === 'medium' ? 7 : 10);
+            let bars = Array.from({length: count}, (_, i) => i + 1).sort(() => Math.random() - 0.5);
+            let selected = [];
 
             const renderBars = () => {
-                const container = el('l3-bars');
-                container.innerHTML = '';
-                const barWidthClass = arr.length > 7 ? 'w-8 md:w-10' : 'w-12 md:w-16';
-
-                arr.forEach((val, idx) => {
-                    const bar = document.createElement('div');
-                    bar.className = `${barWidthClass} rounded-t-md cursor-pointer flex items-end justify-center pb-2 text-white font-bold sort-bar text-xs md:text-base ${selectedIdx === idx ? 'bg-amber-400 -translate-y-4' : 'bg-blue-500 hover:bg-blue-400'}`;
-                    bar.style.height = `${val}%`;
-                    bar.textContent = val;
-                    bar.onclick = () => {
-                        if(selectedIdx === null) {
-                            selectedIdx = idx;
-                            renderBars();
-                        } else {
-                            if(selectedIdx !== idx) {
-                                let temp = arr[idx];
-                                arr[idx] = arr[selectedIdx];
-                                arr[selectedIdx] = temp;
-                            }
-                            selectedIdx = null;
-                            renderBars();
-                            checkWin();
-                        }
-                    };
-                    container.appendChild(bar);
-                });
+                container.innerHTML = `
+                    <p class="text-sm text-gray-500 mb-6 font-medium text-center px-4">${state.lang === 'KO' ? "두 막대를 클릭해 위치를 교환하여 오름차순으로 정렬하세요!" : "Click two bars to swap and sort them in ascending order!"}</p>
+                    <div class="flex items-end justify-center space-x-2 h-48 w-full px-4">
+                        ${bars.map((val, idx) => `
+                            <div onclick="window.selectBar(${idx})" class="bar-transition cursor-pointer rounded-t-lg flex flex-col items-center justify-end ${selected.includes(idx) ? 'bg-indigo-600 scale-105 shadow-lg' : 'bg-indigo-300 hover:bg-indigo-400'}" 
+                                 style="height: ${(val / count) * 100}%; width: 30px;">
+                                <span class="text-[10px] font-bold text-white mb-1">${val}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
             };
 
-            const checkWin = () => {
-                let sorted = true;
-                for(let i=0; i<arr.length-1; i++){
-                    if(arr[i] > arr[i+1]) sorted = false;
+            window.selectBar = (idx) => {
+                if(selected.includes(idx)) {
+                    selected = [];
+                } else {
+                    selected.push(idx);
+                    if(selected.length === 2) {
+                        let temp = bars[selected[0]];
+                        bars[selected[0]] = bars[selected[1]];
+                        bars[selected[1]] = temp;
+                        selected = [];
+                        
+                        const isSorted = bars.every((v, i) => i === 0 || v >= bars[i-1]);
+                        if(isSorted) {
+                            renderBars();
+                            setTimeout(completeLevel, 500);
+                        }
+                    }
                 }
-                if(sorted) {
-                    const lv = DICT[APP_STATE.lang].levels[2];
-                    setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 500);
-                }
+                renderBars();
+            };
+
+            document.getElementById('primary-action-btn').onclick = () => {
+                const isSorted = bars.every((v, i) => i === 0 || v >= bars[i-1]);
+                if(isSorted) completeLevel();
+                else showModal({ title: t('failed'), body: state.lang === 'KO' ? "아직 정렬되지 않았습니다." : "Not sorted yet.", buttons: [{ text: t('check') }] });
             };
 
             renderBars();
         }
 
-        // --- LEVEL 4: Greedy ---
-        function initLevel4() {
-            const board = el('game-board');
-            const ui = DICT[APP_STATE.lang].gameUI;
+        // LEVEL 4: Greedy Knapsack
+        function setupLevel4(container) {
+            const capacity = state.difficulty === 'easy' ? 30 : (state.difficulty === 'medium' ? 50 : 80);
+            const items = [];
+            const count = 5;
+            const emojis = ['💎', '💰', '👑', '📦', '🎁'];
             
-            // Random Base Items
-            let baseItems = [
-                { id: 'A', name: '💎 Diamond', w: 2 },
-                { id: 'B', name: '🔴 Ruby', w: 3 },
-                { id: 'C', name: '🔵 Sapphire', w: 4 },
-                { id: 'D', name: '🟢 Emerald', w: 5 },
-                { id: 'E', name: '💍 Ring', w: 1 }
-            ];
-
-            // Difficulty scaling
-            let maxW = 10;
-            if (APP_STATE.difficulty === 'intermediate' || APP_STATE.difficulty === 'advanced') {
-                baseItems.push({ id: 'F', name: '👑 Crown', w: 6 }, { id: 'G', name: '📿 Necklace', w: 2 });
-                if (APP_STATE.difficulty === 'intermediate') maxW = 15;
-            }
-            if (APP_STATE.difficulty === 'advanced') {
-                baseItems.push({ id: 'H', name: '🪙 Gold Coin', w: 1 }, { id: 'I', name: '🏆 Trophy', w: 7 }, { id: 'J', name: '🏺 Relic', w: 4 });
-                maxW = 20;
+            for(let i=0; i<count; i++) {
+                items.push({
+                    id: i,
+                    weight: Math.floor(Math.random() * 15) + 5,
+                    value: Math.floor(Math.random() * 50) + 10,
+                    emoji: emojis[i % emojis.length]
+                });
             }
 
-            // Assign Dynamic Random Values & Compute Ratio
-            let items = baseItems.map(item => {
-                let vwRatio = Math.floor(Math.random() * 8) + 4; // 가중치 랜덤 (4~11)
-                let v = item.w * vwRatio + Math.floor(Math.random() * 5) - 2; // 노이즈 추가
-                return { ...item, v: v > 0 ? v : 1, sel: false, ratio: v / item.w };
-            });
-
-            // Auto-calculate the Optimal Greedy Target!
-            let sortedItems = [...items].sort((a,b) => b.ratio - a.ratio);
-            let targetV = 0, tempW = 0;
-            sortedItems.forEach(item => {
-                if (tempW + item.w <= maxW) {
-                    tempW += item.w;
-                    targetV += item.v;
+            const sortedItems = [...items].sort((a, b) => (b.value/b.weight) - (a.value/a.weight));
+            let optVal = 0;
+            let tempCap = capacity;
+            for(let item of sortedItems) {
+                if(tempCap >= item.weight) {
+                    optVal += item.value;
+                    tempCap -= item.weight;
                 }
-            });
+            }
+            
+            let currentWeight = 0;
+            let currentValue = 0;
+            let selectedIds = [];
 
-            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
-                `배낭의 최대 무게는 ${maxW}kg입니다. 무게를 넘지 않으면서 가장 가치가 높게(최소 ${targetV}G 이상) 담으세요.` : 
-                `Max capacity is ${maxW}kg. Pack items to maximize value (Reach at least ${targetV}G) without exceeding weight.`;
+            const renderKnapsack = () => {
+                container.innerHTML = `
+                    <div class="w-full text-center space-y-4">
+                        <div class="flex justify-between items-center px-4">
+                            <div class="text-left">
+                                <p class="text-xs text-gray-500 font-bold uppercase">Weight</p>
+                                <p class="text-xl font-black ${currentWeight > capacity ? 'text-red-500' : 'text-gray-800'}">${currentWeight} / ${capacity}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500 font-bold uppercase">Goal Value</p>
+                                <p class="text-xl font-black text-indigo-600">≥ ${optVal}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-5 gap-2 px-2">
+                            ${items.map(item => `
+                                <div onclick="window.toggleItem(${item.id})" class="cursor-pointer p-2 border-2 rounded-xl transition-all ${selectedIds.includes(item.id) ? 'border-indigo-500 bg-indigo-50' : 'border-gray-100 hover:border-gray-200'}">
+                                    <div class="text-2xl mb-1">${item.emoji}</div>
+                                    <div class="text-[10px] text-gray-400 font-bold">${item.weight}kg</div>
+                                    <div class="text-xs text-indigo-600 font-bold">$${item.value}</div>
+                                </div>
+                            `).join('')}
+                        </div>
 
-            const renderUI = () => {
-                let curW = 0, curV = 0;
-                items.forEach(i => { if(i.sel){ curW += i.w; curV += i.v; } });
+                        <div class="p-4 bg-gray-50 rounded-2xl flex items-center justify-center space-x-2">
+                            <span class="text-sm font-bold text-gray-500">Total Value:</span>
+                            <span class="text-2xl font-black text-indigo-600">$${currentValue}</span>
+                        </div>
+                    </div>
+                `;
+            };
+
+            window.toggleItem = (id) => {
+                if(selectedIds.includes(id)) {
+                    selectedIds = selectedIds.filter(i => i !== id);
+                } else {
+                    selectedIds.push(id);
+                }
                 
-                let isOver = curW > maxW;
-                let wColor = isOver ? 'text-red-600' : 'text-blue-600';
+                currentWeight = 0;
+                currentValue = 0;
+                items.forEach(item => {
+                    if(selectedIds.includes(item.id)) {
+                        currentWeight += item.weight;
+                        currentValue += item.value;
+                    }
+                });
+                renderKnapsack();
+            };
 
-                board.innerHTML = `
-                    <div class="flex gap-8 mb-6 bg-white p-4 rounded shadow-sm w-full max-w-lg justify-between items-center border">
-                        <div class="text-center">
-                            <div class="text-sm text-gray-500">${ui.l4_capacity}</div>
-                            <div class="text-xl font-bold ${wColor}">${curW} / ${maxW}kg</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-sm text-gray-500">${ui.l4_value} (목표: ${targetV}G)</div>
-                            <div class="text-xl font-bold text-amber-500">${curV} G</div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-lg">
-                        ${items.map((it, idx) => `
-                            <button class="border-2 rounded-lg p-3 text-left flex justify-between items-center transition-colors ${it.sel ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-amber-300 bg-white'}" onclick="l4_toggle(${idx})">
-                                <span class="font-bold text-sm md:text-base">${it.name}</span>
-                                <span class="text-xs md:text-sm text-gray-500">${it.w}kg / ${it.v}G</span>
-                            </button>
-                        `).join('')}
-                    </div>
-                `;
-
-                if(!isOver && curV >= targetV) {
-                    const lv = DICT[APP_STATE.lang].levels[3];
-                    setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 300);
+            document.getElementById('primary-action-btn').onclick = () => {
+                if(currentWeight > capacity) {
+                    showModal({ title: t('failed'), body: state.lang === 'KO' ? "배낭이 너무 무겁습니다!" : "The bag is too heavy!", buttons: [{ text: t('check') }] });
+                } else if(currentValue >= optVal) {
+                    completeLevel();
+                } else {
+                    showModal({ title: t('failed'), body: state.lang === 'KO' ? "더 높은 가치를 만들 수 있습니다." : "You can achieve more value.", buttons: [{ text: t('check') }] });
                 }
             };
 
-            window.l4_toggle = (idx) => {
-                items[idx].sel = !items[idx].sel;
-                renderUI();
-            };
-
-            renderUI();
+            renderKnapsack();
         }
 
-        // --- LEVEL 5: Dijkstra ---
-        function initLevel5() {
-            const board = el('game-board');
-            const ui = DICT[APP_STATE.lang].gameUI;
+        // LEVEL 5: Dijkstra Shortest Path
+        function setupLevel5(container) {
+            const nodeCount = state.difficulty === 'easy' ? 5 : (state.difficulty === 'medium' ? 7 : 9);
+            const nodes = [];
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
             
-            // Maps config by difficulty (Edges without weights yet)
-            const maps = {
-                beginner: {
-                    nodes: {
-                        A: { x: 10, y: 50, label: ui.l5_start }, B: { x: 40, y: 20, label: 'B' },
-                        C: { x: 40, y: 80, label: 'C' }, D: { x: 70, y: 20, label: 'D' },
-                        E: { x: 90, y: 50, label: ui.l5_end }
-                    },
-                    edges: [
-                        { f: 'A', t: 'B' }, { f: 'A', t: 'C' }, { f: 'B', t: 'C' }, 
-                        { f: 'B', t: 'D' }, { f: 'C', t: 'D' }, { f: 'C', t: 'E' }, { f: 'D', t: 'E' }
-                    ],
-                    targetNode: 'E'
-                },
-                intermediate: {
-                    nodes: {
-                        A: { x: 10, y: 50, label: ui.l5_start }, B: { x: 35, y: 20, label: 'B' },
-                        C: { x: 35, y: 80, label: 'C' }, D: { x: 65, y: 20, label: 'D' },
-                        E: { x: 65, y: 80, label: 'E' }, F: { x: 90, y: 50, label: ui.l5_end }
-                    },
-                    edges: [
-                        { f: 'A', t: 'B' }, { f: 'A', t: 'C' }, { f: 'B', t: 'D' }, 
-                        { f: 'B', t: 'E' }, { f: 'C', t: 'D' }, { f: 'C', t: 'E' },
-                        { f: 'D', t: 'F' }, { f: 'E', t: 'F' }
-                    ],
-                    targetNode: 'F'
-                },
-                advanced: {
-                    nodes: {
-                        A: { x: 10, y: 50, label: ui.l5_start }, B: { x: 30, y: 20, label: 'B' },
-                        C: { x: 30, y: 80, label: 'C' }, D: { x: 50, y: 50, label: 'D' },
-                        E: { x: 70, y: 20, label: 'E' }, F: { x: 70, y: 80, label: 'F' },
-                        G: { x: 90, y: 50, label: ui.l5_end }
-                    },
-                    edges: [
-                        { f: 'A', t: 'B' }, { f: 'A', t: 'C' }, { f: 'B', t: 'D' }, 
-                        { f: 'C', t: 'D' }, { f: 'B', t: 'E' }, { f: 'D', t: 'E' },
-                        { f: 'D', t: 'F' }, { f: 'C', t: 'F' }, { f: 'E', t: 'G' }, { f: 'F', t: 'G' }
-                    ],
-                    targetNode: 'G'
+            for(let i=0; i<nodeCount; i++) {
+                nodes.push({
+                    id: alphabet[i],
+                    x: 10 + Math.random() * 80,
+                    y: 15 + Math.random() * 70
+                });
+            }
+            
+            const edges = [];
+            for(let i=0; i<nodeCount; i++) {
+                for(let j=i+1; j<nodeCount; j++) {
+                    if(Math.random() > 0.5) {
+                        edges.push({ u: nodes[i].id, v: nodes[j].id, weight: Math.floor(Math.random() * 8) + 1 });
+                    }
                 }
-            };
+            }
 
-            const curMap = maps[APP_STATE.difficulty];
-            const { nodes, edges, targetNode } = curMap;
+            for(let i=0; i<nodeCount-1; i++) {
+                if(!edges.find(e => (e.u === nodes[i].id && e.v === nodes[i+1].id) || (e.v === nodes[i].id && e.u === nodes[i+1].id))) {
+                    edges.push({ u: nodes[i].id, v: nodes[i+1].id, weight: Math.floor(Math.random() * 5) + 2 });
+                }
+            }
+
+            const dist = {};
+            const graph = {};
+            nodes.forEach(n => { dist[n.id] = Infinity; graph[n.id] = []; });
+            edges.forEach(e => {
+                graph[e.u].push({ to: e.v, w: e.weight });
+                graph[e.v].push({ to: e.u, w: e.weight });
+            });
             
-            // Randomize Edge Weights (1 to 8)
-            edges.forEach(e => e.w = Math.floor(Math.random() * 8) + 1);
-
-            // Auto-calculate Shortest Path using Dijkstra algorithm
-            let dist = {};
-            Object.keys(nodes).forEach(k => dist[k] = Infinity);
-            dist['A'] = 0;
-            let unvisited = new Set(Object.keys(nodes));
-
-            while(unvisited.size > 0) {
-                let u = Array.from(unvisited).reduce((a, b) => dist[a] < dist[b] ? a : b);
-                unvisited.delete(u);
-                if(dist[u] === Infinity || u === targetNode) break;
-
-                let neighbors = edges.filter(e => e.f === u || e.t === u);
-                neighbors.forEach(edge => {
-                    let v = edge.f === u ? edge.t : edge.f;
-                    if(unvisited.has(v)) {
-                        let alt = dist[u] + edge.w;
-                        if(alt < dist[v]) dist[v] = alt;
+            const startNode = nodes[0].id;
+            const endNode = nodes[nodeCount-1].id;
+            dist[startNode] = 0;
+            const q = [startNode];
+            const visited = new Set();
+            
+            while(q.length > 0) {
+                q.sort((a,b) => dist[a] - dist[b]);
+                const curr = q.shift();
+                if(visited.has(curr)) continue;
+                visited.add(curr);
+                
+                graph[curr].forEach(edge => {
+                    const newDist = dist[curr] + edge.w;
+                    if(newDist < dist[edge.to]) {
+                        dist[edge.to] = newDist;
+                        q.push(edge.to);
                     }
                 });
             }
-            const targetCost = dist[targetNode];
-            
-            let path = ['A'];
-            let currentCost = 0;
 
-            el('game-desc').textContent = APP_STATE.lang === 'ko' ? 
-                `출발지(A)에서 목적지(${targetNode})까지 가는 가장 빠른(비용이 적은) 경로를 연결하세요. (최소 비용: ${targetCost})` : 
-                `Find the fastest path from Start(A) to End(${targetNode}). (Target cost: ${targetCost})`;
+            const targetDist = dist[endNode];
+            let userPath = [startNode];
+            let userDist = 0;
 
-            const renderMap = () => {
-                currentCost = 0;
-                for(let i=0; i<path.length-1; i++){
-                    let edge = edges.find(e => (e.f===path[i] && e.t===path[i+1]) || (e.t===path[i] && e.f===path[i+1]));
-                    if(edge) currentCost += edge.w;
-                }
-
-                let html = `
-                    <div class="flex justify-between w-full max-w-2xl mb-4 font-bold text-lg px-4">
-                        <span class="text-blue-600">${ui.l5_current} ${currentCost}</span>
-                        <span class="text-amber-600">${ui.l5_target} ${targetCost}</span>
+            const renderGraph = () => {
+                container.innerHTML = `
+                    <div class="w-full text-center mb-2">
+                        <div class="flex justify-between items-center text-xs font-bold text-gray-500 px-2">
+                            <span>START: ${startNode} → END: ${endNode}</span>
+                            <span class="text-indigo-600 font-bold">SHORTEST TARGET: ${targetDist}</span>
+                        </div>
+                        <div class="mt-1 text-sm font-black text-indigo-700">CURRENT PATH COST: ${userDist}</div>
                     </div>
-                    <div class="relative w-full max-w-2xl h-64 md:h-[400px] bg-white border-2 border-gray-200 rounded-xl overflow-hidden material-shadow">
-                        <svg class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                    <div class="relative w-full h-64 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                        <svg class="w-full h-full">
+                            ${edges.map(e => {
+                                const n1 = nodes.find(n => n.id === e.u);
+                                const n2 = nodes.find(n => n.id === e.v);
+                                const uIdx = userPath.indexOf(e.u);
+                                const vIdx = userPath.indexOf(e.v);
+                                const isUserEdge = uIdx !== -1 && vIdx !== -1 && Math.abs(uIdx - vIdx) === 1;
+                                return `
+                                    <line x1="${n1.x}%" y1="${n1.y}%" x2="${n2.x}%" y2="${n2.y}%" stroke="${isUserEdge ? '#4f46e5' : '#cbd5e1'}" stroke-width="${isUserEdge ? 4 : 2}" />
+                                    <text x="${(n1.x + n2.x)/2}%" y="${(n1.y + n2.y)/2}%" fill="${isUserEdge ? '#4f46e5' : '#64748b'}" font-size="12" font-weight="bold" dy="-5">${e.weight}</text>
+                                `;
+                            }).join('')}
+                            ${nodes.map(n => {
+                                const isSelected = userPath.includes(n.id);
+                                const isLast = userPath[userPath.length - 1] === n.id;
+                                return `
+                                    <circle cx="${n.x}%" cy="${n.y}%" r="15" fill="${isLast ? '#4f46e5' : (isSelected ? '#818cf8' : 'white')}" stroke="#4f46e5" stroke-width="2" class="cursor-pointer transition-colors" onclick="window.clickNode('${n.id}')" />
+                                    <text x="${n.x}%" y="${n.y}%" text-anchor="middle" dy=".3em" fill="${isSelected ? 'white' : '#4f46e5'}" font-size="10" font-weight="bold" class="pointer-events-none">${n.id}</text>
+                                `;
+                            }).join('')}
+                        </svg>
+                    </div>
+                    <p class="mt-4 text-[10px] text-gray-400 font-medium text-center">노드를 차례로 클릭해 연결하세요. 현재 발판을 다시 누르면 뒤로 갑니다.</p>
                 `;
+            };
 
-                // Draw Edges
-                edges.forEach(e => {
-                    const n1 = nodes[e.f], n2 = nodes[e.t];
-                    let inPath = false;
-                    for(let i=0; i<path.length-1; i++) {
-                        if((path[i]===e.f && path[i+1]===e.t) || (path[i]===e.t && path[i+1]===e.f)) inPath = true;
+            window.clickNode = (id) => {
+                const last = userPath[userPath.length - 1];
+                if(last === id && userPath.length > 1) {
+                    const prev = userPath[userPath.length - 2];
+                    const edge = edges.find(e => (e.u === last && e.v === prev) || (e.v === last && e.u === prev));
+                    userDist -= edge.weight;
+                    userPath.pop();
+                } else {
+                    const edge = edges.find(e => (e.u === last && e.v === id) || (e.v === last && e.u === id));
+                    if(edge && !userPath.includes(id)) {
+                        userDist += edge.weight;
+                        userPath.push(id);
                     }
-                    html += `<line x1="${n1.x}%" y1="${n1.y}%" x2="${n2.x}%" y2="${n2.y}%" stroke="${inPath ? '#3b82f6' : '#cbd5e1'}" stroke-width="${inPath ? '4' : '2'}"/>`;
-                    html += `<text x="${(n1.x+n2.x)/2}%" y="${(n1.y+n2.y)/2 - 2}%" fill="${inPath ? '#1d4ed8' : '#64748b'}" font-weight="bold" font-size="14" text-anchor="middle">${e.w}</text>`;
-                });
-                html += `</svg>`;
+                }
+                renderGraph();
+            };
 
-                // Draw Nodes
-                Object.keys(nodes).forEach(k => {
-                    const n = nodes[k];
-                    const isLast = path[path.length-1] === k;
-                    const inPath = path.includes(k);
-                    html += `
-                        <button class="absolute z-10 w-8 h-8 md:w-10 md:h-10 -ml-4 -mt-4 md:-ml-5 md:-mt-5 rounded-full font-bold text-white shadow-md transition-transform hover:scale-110 ${isLast ? 'bg-amber-500 ring-4 ring-amber-200' : inPath ? 'bg-blue-600' : 'bg-gray-400'}" 
-                                style="left: ${n.x}%; top: ${n.y}%;"
-                                onclick="l5_click('${k}')">
-                            ${k}
-                        </button>
-                        <div class="absolute z-10 text-xs font-bold text-gray-700 -ml-10 mt-5 md:mt-6 w-20 text-center pointer-events-none" style="left: ${n.x}%; top: ${n.y}%;">${n.label}</div>
-                    `;
-                });
-
-                html += `</div>`;
-                board.innerHTML = html;
-
-                // Check Win
-                if(path[path.length-1] === targetNode) {
-                    if(currentCost === targetCost) {
-                        const lv = DICT[APP_STATE.lang].levels[4];
-                        setTimeout(() => showModal(lv.successTitle, lv.successMsg, 'success'), 300);
+            document.getElementById('primary-action-btn').onclick = () => {
+                if(userPath[userPath.length - 1] === endNode) {
+                    if(userDist === targetDist) {
+                        completeLevel();
                     } else {
-                        setTimeout(() => {
-                            showModal(
-                                APP_STATE.lang === 'ko' ? "경로 확인" : "Check Path",
-                                APP_STATE.lang === 'ko' ? "도착했지만 최단 경로가 아닙니다. 다시 시도해보세요!" : "Reached end, but not the shortest path!",
-                                "info"
-                            );
-                            l5_reset();
-                        }, 300);
+                        showModal({ title: t('failed'), body: state.lang === 'KO' ? `도착은 했지만 최단 거리가 아닙니다. (현재: ${userDist}, 최단: ${targetDist})` : `Reached goal, but not the shortest path. (Current: ${userDist}, Shortest: ${targetDist})`, buttons: [{ text: t('check') }] });
                     }
+                } else {
+                    showModal({ title: t('failed'), body: state.lang === 'KO' ? "도착 지점까지 경로를 완성하세요." : "Complete the path to the end node.", buttons: [{ text: t('check') }] });
                 }
             };
 
-            window.l5_click = (node) => {
-                const last = path[path.length-1];
-                if(node === last) return; // ignore same
-                // check if connected
-                let edge = edges.find(e => (e.f===last && e.t===node) || (e.t===last && e.f===node));
-                if(edge) {
-                    if(path.includes(node)) {
-                        // go back to that node
-                        const idx = path.indexOf(node);
-                        path = path.slice(0, idx+1);
-                    } else {
-                        path.push(node);
-                    }
-                    renderMap();
-                }
-            };
-
-            window.l5_reset = () => { path = ['A']; renderMap(); };
-            renderMap();
+            renderGraph();
         }
 
-        /* ==========================================================================
-           5. Initialize Application
-           ========================================================================== */
-        window.onload = () => renderApp();
-
+        // --- Init ---
+        window.onload = () => {
+            updateUI();
+        };
     </script>
 </body>
 </html>
